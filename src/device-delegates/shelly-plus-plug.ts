@@ -3,6 +3,7 @@ import {
   ShellyPlusPlugEu,
   ShellyPlusPlugIt,
   ShellyPlusPlugUk,
+  ShellyPlugSG3Eu,
 } from "shellies-ds9";
 
 import { DeviceDelegate } from "./base";
@@ -23,5 +24,6 @@ DeviceDelegate.registerDelegate(
   ShellyPlusPlugUs,
   ShellyPlusPlugEu,
   ShellyPlusPlugIt,
-  ShellyPlusPlugUk
+  ShellyPlusPlugUk,
+  ShellyPlugSG3Eu
 );
