@@ -25,6 +25,7 @@ For the first generation, see [homebridge-shelly](https://github.com/alexryd/hom
 - [Shelly Plus Plug UK](https://kb.shelly.cloud/knowledge-base/shelly-plus-plug-uk)
 - [Shelly Plus Plug IT](https://kb.shelly.cloud/knowledge-base/shelly-plus-plug-it)
 - [Shelly Plus 0-10V Dimmer](https://kb.shelly.cloud/knowledge-base/shelly-plus-0-10v-dimmer)
+- [Shelly Plug S Gen3 Eu](https://kb.shelly.cloud/knowledge-base/shelly-plug-s-mtr-gen3)
 - [Shelly Dimmer 0/1-10V PM Gen3](https://kb.shelly.cloud/knowledge-base/shelly-dimmer-0-1-10v-pm-gen3)
 - [Shelly Dimmer Gen3](https://kb.shelly.cloud/knowledge-base/shelly-dimmer-gen3)
 - [Shelly Pro 1](https://kb.shelly.cloud/knowledge-base/shelly-pro-1)
