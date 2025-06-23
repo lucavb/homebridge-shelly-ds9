@@ -1,15 +1,33 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceCache, type CachedDeviceInfo } from './device-cache';
 import type { Logger } from 'homebridge';
+import { Device } from '@lucavb/shellies-ds9';
+
+type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> & Record<string, unknown> : T[P];
+};
 
 // Mock logger
 const mockLogger: Logger = {
     debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
     log: vi.fn(),
-} as any;
+    success: vi.fn(),
+    warn: vi.fn(),
+};
+
+const buildMockDevice = (props: DeepPartial<Device>) => {
+    return {
+        id: 'shellypro1-123456789',
+        model: 'ShellyPro1',
+        rpcHandler: {
+            protocol: 'websocket',
+            hostname: '192.168.1.150',
+        },
+        ...props,
+    } as unknown as Device;
+};
 
 describe('DeviceCache', () => {
     let deviceCache: DeviceCache;
@@ -42,18 +60,18 @@ describe('DeviceCache', () => {
         });
 
         it('should overwrite existing device info', () => {
-            const initialInfo: CachedDeviceInfo = {
+            const initialInfo = {
                 id: 'test-device',
                 model: 'ShellyPlus1',
                 protocol: 'websocket',
-            };
+            } as const satisfies CachedDeviceInfo;
 
-            const updatedInfo: CachedDeviceInfo = {
+            const updatedInfo = {
                 id: 'test-device',
                 model: 'ShellyPlus2PM',
                 protocol: 'websocket',
                 hostname: '192.168.1.200',
-            };
+            } as const satisfies CachedDeviceInfo;
 
             deviceCache.set(initialInfo, false);
             deviceCache.set(updatedInfo, false);
@@ -88,14 +106,9 @@ describe('DeviceCache', () => {
 
     describe('storeDevice()', () => {
         it('should extract device info correctly', () => {
-            const mockDevice = {
-                id: 'shellypro1-123456789',
-                model: 'ShellyPro1',
-                rpcHandler: {
-                    protocol: 'websocket',
-                    hostname: '192.168.1.150',
-                },
-            } as any;
+            const mockDevice = buildMockDevice({
+                rpcHandler: { protocol: 'websocket', hostname: '192.168.1.150' },
+            });
 
             deviceCache.storeDevice(mockDevice, false);
 
@@ -109,13 +122,11 @@ describe('DeviceCache', () => {
         });
 
         it('should handle device without hostname', () => {
-            const mockDevice = {
+            const mockDevice = buildMockDevice({
                 id: 'shelly-device',
                 model: 'ShellyPlus1',
-                rpcHandler: {
-                    protocol: 'http',
-                },
-            } as any;
+                rpcHandler: { protocol: 'http' },
+            });
 
             deviceCache.storeDevice(mockDevice, false);
 

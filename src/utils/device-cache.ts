@@ -68,7 +68,7 @@ export class DeviceCache {
         try {
             // see if the cache file exists
             await fs.access(this.path);
-        } catch (_) {
+        } catch {
             // the file doesn't exist
             this.log.debug('Device cache file ' + this.path + ' not found');
             return;
@@ -154,15 +154,7 @@ export class DeviceCache {
             hostname = (device.rpcHandler as WebSocketRpcHandler).hostname;
         }
 
-        this.set(
-            {
-                id: device.id,
-                model: device.model,
-                protocol,
-                hostname,
-            },
-            autoSave,
-        );
+        this.set({ hostname, id: device.id, model: device.model, protocol }, autoSave);
     }
 
     /**
