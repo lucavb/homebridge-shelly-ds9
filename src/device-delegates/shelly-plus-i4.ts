@@ -1,4 +1,4 @@
-import { ShellyPlusI4, ShellyPlusI4V3 } from 'shellies-ds9';
+import { ShellyPlusI4, ShellyPlusI4V3 } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base';
 import { ReadonlySwitchAbility, ServiceLabelAbility, StatelessProgrammableSwitchAbility } from '../abilities';

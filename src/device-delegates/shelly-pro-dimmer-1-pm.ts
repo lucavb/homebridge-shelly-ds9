@@ -1,4 +1,4 @@
-import { ShellyDimmer, ShellyProDimmer1Pm, ShellyProDimmer1Pm2 } from 'shellies-ds9';
+import { ShellyDimmer, ShellyProDimmer1Pm, ShellyProDimmer1Pm2 } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base';
 

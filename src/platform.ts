@@ -1,6 +1,13 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 
-import { Device, DeviceDiscoverer, DeviceId, DeviceIdentifiers, MdnsDeviceDiscoverer, Shellies } from 'shellies-ds9';
+import {
+    Device,
+    DeviceDiscoverer,
+    DeviceId,
+    DeviceIdentifiers,
+    MdnsDeviceDiscoverer,
+    Shellies,
+} from '@lucavb/shellies-ds9';
 
 import { CustomCharacteristics, createCharacteristics } from './utils/characteristics';
 import { CustomServices, createServices } from './utils/services';

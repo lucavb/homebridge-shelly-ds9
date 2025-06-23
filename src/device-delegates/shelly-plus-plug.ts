@@ -1,4 +1,10 @@
-import { ShellyPlusPlugUs, ShellyPlusPlugEu, ShellyPlusPlugIt, ShellyPlusPlugUk, ShellyPlugSG3Eu } from 'shellies-ds9';
+import {
+    ShellyPlusPlugUs,
+    ShellyPlusPlugEu,
+    ShellyPlusPlugIt,
+    ShellyPlusPlugUk,
+    ShellyPlugSG3Eu,
+} from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base';
 

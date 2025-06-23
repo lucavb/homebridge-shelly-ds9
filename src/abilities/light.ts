@@ -1,5 +1,5 @@
 import { CharacteristicValue } from 'homebridge';
-import { CharacteristicValue as ShelliesCharacteristicValue, Light } from 'shellies-ds9';
+import { CharacteristicValue as ShelliesCharacteristicValue, Light } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base';
 

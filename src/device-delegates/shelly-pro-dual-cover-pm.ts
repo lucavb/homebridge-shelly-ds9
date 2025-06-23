@@ -1,4 +1,4 @@
-import { ShellyProDualCoverPm } from 'shellies-ds9';
+import { ShellyProDualCoverPm } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base';
 
