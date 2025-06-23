@@ -1,302 +1,283 @@
 {
-  "pluginAlias": "ShellyDS9",
-  "pluginType": "platform",
-  "singular": true,
-  "schema": {
-    "type": "object",
-    "properties": {
-      "name": {
-        "title": "Name",
-        "type": "string",
-        "required": true,
-        "default": "Shelly NG"
-      },
-      "mdns": {
+    "pluginAlias": "ShellyDS9",
+    "pluginType": "platform",
+    "singular": true,
+    "schema": {
         "type": "object",
         "properties": {
-          "enable": {
-            "title": "Enable",
-            "description": "Whether devices should be automatically discovered using mDNS.",
-            "type": "boolean",
-            "default": true
-          },
-          "interface": {
-            "title": "Network interface",
-            "description": "The network interface to use when sending and receiving mDNS packets. You probably don't need to use this setting unless you know what you're doing. If not specified, all available network interfaces will be used.",
-            "type": "string",
-            "placeholder": "e.g. eth0 or 192.168.1.100"
-          }
-        }
-      },
-      "websocket": {
-        "type": "object",
-        "properties": {
-          "requestTimeout": {
-            "title": "Request timeout",
-            "type": "integer",
-            "placeholder": "10",
-            "description": "The time, in seconds, to wait for a response before a request is aborted."
-          },
-          "pingInterval": {
-            "title": "Ping interval",
-            "type": "integer",
-            "placeholder": "60",
-            "description": "The interval, in seconds, at which ping requests should be made to verify that the connection is open. Set to 0 to disable."
-          },
-          "reconnectInterval": {
-            "title": "Reconnect intervals",
-            "type": "string",
-            "placeholder": "5,10,30,60,300,600",
-            "description": "The interval, in seconds, at which a connection attempt should be made after a socket has been closed. Multiple intervals can be specified as a comma-separated list of numbers. Set to 0 to disable."
-          }
-        }
-      },
-      "devices": {
-        "type": "array",
-        "items": {
-          "title": "Device",
-          "type": "object",
-          "properties": {
-            "id": {
-              "title": "Device ID",
-              "description": "See <a href='https://github.com/alexryd/homebridge-shelly-ng/wiki/Finding-a-device-ID' target='_blank'>this page</a> for instructions on how to find your device's ID.",
-              "type": "string",
-              "placeholder": "e.g. shellyplus1-abcdef123456",
-              "required": true
-            },
             "name": {
-              "title": "Name",
-              "description": "This name will be shown in the homebridge log and will be used as the default name when the device is added to HomeKit. Note though that setting this value after the device has been added will not change the name in HomeKit.",
-              "type": "string"
+                "title": "Name",
+                "type": "string",
+                "required": true,
+                "default": "Shelly NG"
             },
-            "exclude": {
-              "title": "Exclude this device",
-              "type": "boolean",
-              "default": false
-            },
-            "hostname": {
-              "title": "IP address or hostname",
-              "description": "Set this value if your device can't be discovered automatically.",
-              "type": "string",
-              "placeholder": "e.g. 192.168.1.100"
-            },
-            "password": {
-              "title": "Password",
-              "type": "string",
-              "description": "The password to use if the Shelly device requires authentication."
-            },
-            "switch:0": {
-              "title": "Switch 1",
-              "type": "object",
-              "properties": {
-                "exclude": {
-                  "title": "Exclude this switch",
-                  "type": "boolean",
-                  "default": false
-                },
-                "type": {
-                  "title": "Type",
-                  "description": "The type of accessory used to represent the switch.",
-                  "type": "string",
-                  "oneOf": [
-                    { "title": "Outlet", "enum": [ "outlet" ] },
-                    { "title": "Switch", "enum": [ "switch" ] }
-                  ],
-                  "default": "switch"
+            "mdns": {
+                "type": "object",
+                "properties": {
+                    "enable": {
+                        "title": "Enable",
+                        "description": "Whether devices should be automatically discovered using mDNS.",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "interface": {
+                        "title": "Network interface",
+                        "description": "The network interface to use when sending and receiving mDNS packets. You probably don't need to use this setting unless you know what you're doing. If not specified, all available network interfaces will be used.",
+                        "type": "string",
+                        "placeholder": "e.g. eth0 or 192.168.1.100"
+                    }
                 }
-              }
             },
-            "switch:1": {
-              "title": "Switch 2",
-              "type": "object",
-              "properties": {
-                "exclude": {
-                  "title": "Exclude this switch",
-                  "type": "boolean",
-                  "default": false
-                },
-                "type": {
-                  "title": "Type",
-                  "description": "The type of accessory used to represent the switch.",
-                  "type": "string",
-                  "oneOf": [
-                    { "title": "Outlet", "enum": [ "outlet" ] },
-                    { "title": "Switch", "enum": [ "switch" ] }
-                  ],
-                  "default": "switch"
+            "websocket": {
+                "type": "object",
+                "properties": {
+                    "requestTimeout": {
+                        "title": "Request timeout",
+                        "type": "integer",
+                        "placeholder": "10",
+                        "description": "The time, in seconds, to wait for a response before a request is aborted."
+                    },
+                    "pingInterval": {
+                        "title": "Ping interval",
+                        "type": "integer",
+                        "placeholder": "60",
+                        "description": "The interval, in seconds, at which ping requests should be made to verify that the connection is open. Set to 0 to disable."
+                    },
+                    "reconnectInterval": {
+                        "title": "Reconnect intervals",
+                        "type": "string",
+                        "placeholder": "5,10,30,60,300,600",
+                        "description": "The interval, in seconds, at which a connection attempt should be made after a socket has been closed. Multiple intervals can be specified as a comma-separated list of numbers. Set to 0 to disable."
+                    }
                 }
-              }
             },
-            "switch:2": {
-              "title": "Switch 3",
-              "type": "object",
-              "properties": {
-                "exclude": {
-                  "title": "Exclude this switch",
-                  "type": "boolean",
-                  "default": false
-                },
-                "type": {
-                  "title": "Type",
-                  "description": "The type of accessory used to represent the switch.",
-                  "type": "string",
-                  "oneOf": [
-                    { "title": "Outlet", "enum": [ "outlet" ] },
-                    { "title": "Switch", "enum": [ "switch" ] }
-                  ],
-                  "default": "switch"
+            "devices": {
+                "type": "array",
+                "items": {
+                    "title": "Device",
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "title": "Device ID",
+                            "description": "See <a href='https://github.com/alexryd/homebridge-shelly-ng/wiki/Finding-a-device-ID' target='_blank'>this page</a> for instructions on how to find your device's ID.",
+                            "type": "string",
+                            "placeholder": "e.g. shellyplus1-abcdef123456",
+                            "required": true
+                        },
+                        "name": {
+                            "title": "Name",
+                            "description": "This name will be shown in the homebridge log and will be used as the default name when the device is added to HomeKit. Note though that setting this value after the device has been added will not change the name in HomeKit.",
+                            "type": "string"
+                        },
+                        "exclude": {
+                            "title": "Exclude this device",
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "hostname": {
+                            "title": "IP address or hostname",
+                            "description": "Set this value if your device can't be discovered automatically.",
+                            "type": "string",
+                            "placeholder": "e.g. 192.168.1.100"
+                        },
+                        "password": {
+                            "title": "Password",
+                            "type": "string",
+                            "description": "The password to use if the Shelly device requires authentication."
+                        },
+                        "switch:0": {
+                            "title": "Switch 1",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this switch",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "type": {
+                                    "title": "Type",
+                                    "description": "The type of accessory used to represent the switch.",
+                                    "type": "string",
+                                    "oneOf": [
+                                        { "title": "Outlet", "enum": ["outlet"] },
+                                        { "title": "Switch", "enum": ["switch"] }
+                                    ],
+                                    "default": "switch"
+                                }
+                            }
+                        },
+                        "switch:1": {
+                            "title": "Switch 2",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this switch",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "type": {
+                                    "title": "Type",
+                                    "description": "The type of accessory used to represent the switch.",
+                                    "type": "string",
+                                    "oneOf": [
+                                        { "title": "Outlet", "enum": ["outlet"] },
+                                        { "title": "Switch", "enum": ["switch"] }
+                                    ],
+                                    "default": "switch"
+                                }
+                            }
+                        },
+                        "switch:2": {
+                            "title": "Switch 3",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this switch",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "type": {
+                                    "title": "Type",
+                                    "description": "The type of accessory used to represent the switch.",
+                                    "type": "string",
+                                    "oneOf": [
+                                        { "title": "Outlet", "enum": ["outlet"] },
+                                        { "title": "Switch", "enum": ["switch"] }
+                                    ],
+                                    "default": "switch"
+                                }
+                            }
+                        },
+                        "switch:3": {
+                            "title": "Switch 4",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this switch",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "type": {
+                                    "title": "Type",
+                                    "description": "The type of accessory used to represent the switch.",
+                                    "type": "string",
+                                    "oneOf": [
+                                        { "title": "Outlet", "enum": ["outlet"] },
+                                        { "title": "Switch", "enum": ["switch"] }
+                                    ],
+                                    "default": "switch"
+                                }
+                            }
+                        },
+                        "cover:0": {
+                            "title": "Cover",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this cover",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "type": {
+                                    "title": "Type",
+                                    "description": "The type of accessory used to represent the cover. This setting apply only when the device is in cover mode.",
+                                    "type": "string",
+                                    "oneOf": [
+                                        { "title": "Door", "enum": ["door"] },
+                                        { "title": "Window", "enum": ["window"] },
+                                        { "title": "Window Covering", "enum": ["windowCovering"] }
+                                    ],
+                                    "default": "window"
+                                }
+                            }
+                        }
+                    }
                 }
-              }
-            },
-            "switch:3": {
-              "title": "Switch 4",
-              "type": "object",
-              "properties": {
-                "exclude": {
-                  "title": "Exclude this switch",
-                  "type": "boolean",
-                  "default": false
-                },
-                "type": {
-                  "title": "Type",
-                  "description": "The type of accessory used to represent the switch.",
-                  "type": "string",
-                  "oneOf": [
-                    { "title": "Outlet", "enum": [ "outlet" ] },
-                    { "title": "Switch", "enum": [ "switch" ] }
-                  ],
-                  "default": "switch"
-                }
-              }
-            },
-            "cover:0": {
-              "title": "Cover",
-              "type": "object",
-              "properties": {
-                "exclude": {
-                  "title": "Exclude this cover",
-                  "type": "boolean",
-                  "default": false
-                },
-                "type": {
-                  "title": "Type",
-                  "description": "The type of accessory used to represent the cover. This setting apply only when the device is in cover mode.",
-                  "type": "string",
-                  "oneOf": [
-                    { "title": "Door", "enum": [ "door" ] },
-                    { "title": "Window", "enum": [ "window" ] },
-                    { "title": "Window Covering", "enum": [ "windowCovering" ] }
-                  ],
-                  "default": "window"
-                }
-              }
             }
-          }
         }
-      }
-    }
-  },
-  "layout": [
-    "name",
-    {
-      "key": "devices",
-      "type": "array",
-      "title": "Devices",
-      "description": "Use these settings to configure individual devices. Note though that unless your devices can't be discovered using mDNS, you don't necessarily have to add them here manually.",
-      "items": [
-        "devices[].id",
-        "devices[].exclude",
-        {
-          "key": "devices[].name",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude"
-          }
-        },
-        {
-          "key": "devices[].hostname",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude"
-          }
-        },
-        {
-          "key": "devices[].password",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude"
-          }
-        },
-        {
-          "key": "devices[].switch:0",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
-          },
-          "items": [
-            "devices[].switch:0.exclude",
-            "devices[].switch:0.type"
-          ]
-        },
-        {
-          "key": "devices[].switch:1",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus2pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
-          },
-          "items": [
-            "devices[].switch:1.exclude",
-            "devices[].switch:1.type"
-          ]
-        },
-        {
-          "key": "devices[].switch:2",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellypro3|shellypro4pm)-/i) !== null"
-          },
-          "items": [
-            "devices[].switch:2.exclude",
-            "devices[].switch:2.type"
-          ]
-        },
-        {
-          "key": "devices[].switch:3",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellypro4pm)-/i) !== null"
-          },
-          "items": [
-            "devices[].switch:3.exclude",
-            "devices[].switch:3.type"
-          ]
-        },
-        {
-          "key": "devices[].cover:0",
-          "condition": {
-            "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/\\s*(?:shellyplus2pm|shellypro2pm)-/i) !== null"
-          },
-          "items": [
-            "devices[].cover:0.exclude",
-            "devices[].cover:0.type"
-          ]
-        }
-      ]
     },
-    {
-      "type": "fieldset",
-      "expandable": true,
-      "title": "mDNS device discovery",
-      "items": [
-        "mdns.enable",
+    "layout": [
+        "name",
         {
-          "key": "mdns.interface",
-          "condition": "mdns.enable"
+            "key": "devices",
+            "type": "array",
+            "title": "Devices",
+            "description": "Use these settings to configure individual devices. Note though that unless your devices can't be discovered using mDNS, you don't necessarily have to add them here manually.",
+            "items": [
+                "devices[].id",
+                "devices[].exclude",
+                {
+                    "key": "devices[].name",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude"
+                    }
+                },
+                {
+                    "key": "devices[].hostname",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude"
+                    }
+                },
+                {
+                    "key": "devices[].password",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude"
+                    }
+                },
+                {
+                    "key": "devices[].switch:0",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].switch:0.exclude", "devices[].switch:0.type"]
+                },
+                {
+                    "key": "devices[].switch:1",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus2pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].switch:1.exclude", "devices[].switch:1.type"]
+                },
+                {
+                    "key": "devices[].switch:2",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].switch:2.exclude", "devices[].switch:2.type"]
+                },
+                {
+                    "key": "devices[].switch:3",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].switch:3.exclude", "devices[].switch:3.type"]
+                },
+                {
+                    "key": "devices[].cover:0",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/\\s*(?:shellyplus2pm|shellypro2pm)-/i) !== null"
+                    },
+                    "items": ["devices[].cover:0.exclude", "devices[].cover:0.type"]
+                }
+            ]
+        },
+        {
+            "type": "fieldset",
+            "expandable": true,
+            "title": "mDNS device discovery",
+            "items": [
+                "mdns.enable",
+                {
+                    "key": "mdns.interface",
+                    "condition": "mdns.enable"
+                }
+            ]
+        },
+        {
+            "type": "fieldset",
+            "expandable": true,
+            "title": "WebSocket connections",
+            "items": ["websocket.requestTimeout", "websocket.pingInterval", "websocket.reconnectInterval"]
         }
-      ]
-    },
-    {
-      "type": "fieldset",
-      "expandable": true,
-      "title": "WebSocket connections",
-      "items": [
-        "websocket.requestTimeout",
-        "websocket.pingInterval",
-        "websocket.reconnectInterval"
-      ]
-    }
-  ]
+    ]
 }
