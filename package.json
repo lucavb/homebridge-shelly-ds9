@@ -15,10 +15,6 @@
         "type": "git",
         "url": "git+https://github.com/cubi1337/homebridge-shelly-ds9.git"
     },
-    "funding": {
-        "type": "kofi",
-        "url": "https://ko-fi.com/cubi1337"
-    },
     "license": "GPL-3.0",
     "author": "Alexander Rydén",
     "type": "module",
