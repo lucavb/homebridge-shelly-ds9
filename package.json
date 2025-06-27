@@ -5,7 +5,20 @@
     "keywords": [
         "homebridge",
         "homebridge-plugin",
-        "shelly"
+        "shelly",
+        "smart-home",
+        "home-automation",
+        "iot",
+        "shelly-devices",
+        "smart-switch",
+        "smart-plug",
+        "dimmer",
+        "cover",
+        "power-meter",
+        "wifi",
+        "esp32",
+        "relay",
+        "automation"
     ],
     "homepage": "https://github.com/lucavb/homebridge-shelly-ds9#readme",
     "bugs": {
