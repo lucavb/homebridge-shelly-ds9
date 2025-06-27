@@ -49,12 +49,16 @@
     ],
     "scripts": {
         "build": "rimraf ./dist && tsup",
-        "lint": "eslint . --max-warnings=0",
-        "pretty": "prettier --write \"./**/*.{js,jsx,json}\"",
+        "cq": "npm run cq:typecheck && npm run cq:eslint && npm run cq:prettier",
+        "cq:eslint": "eslint . --max-warnings=0",
+        "cq:eslint:fix": "eslint . --max-warnings=0 --fix",
+        "cq:prettier": "prettier --check .",
+        "cq:prettier:fix": "prettier --write .",
+        "cq:typecheck": "tsc --noEmit",
         "publishd": "npm publish --dry-run",
         "test": "vitest run",
         "test:watch": "vitest",
-        "preversion": "npm run build && npm run lint",
+        "preversion": "npm run build && npm run cq",
         "postversion": "git push && git push --tags"
     },
     "dependencies": {
