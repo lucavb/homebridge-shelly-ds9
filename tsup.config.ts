@@ -16,4 +16,8 @@ export default defineConfig({
     treeshake: false,
     keepNames: true,
     cjsInterop: true,
+    esbuildOptions(options) {
+        // Preserve side effects for device delegate registrations
+        options.ignoreAnnotations = true;
+    },
 });
