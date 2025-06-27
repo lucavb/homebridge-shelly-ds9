@@ -1,6 +1,6 @@
 {
     "name": "@lucavb/homebridge-shelly-ds9",
-    "version": "1.5.8",
+    "version": "1.5.9",
     "description": "Homebridge plugin for the next generation of Shelly devices",
     "keywords": [
         "homebridge",
