@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
     entry: ['src/index.ts'],
-    format: ['cjs', 'esm'], // Future-proof: Homebridge uses CJS today, but ESM tomorrow?
+    format: ['cjs'], // Keep it simple like your working plugin
     dts: true,
     clean: true,
     sourcemap: true,
@@ -12,12 +12,10 @@ export default defineConfig({
     outDir: 'dist',
     splitting: false,
     bundle: true,
-    outExtension({ format }) {
-        return {
-            js: format === 'cjs' ? '.cjs' : '.mjs',
-            dts: format === 'cjs' ? '.d.cts' : '.d.ts',
-        };
-    },
+    external: [
+        'homebridge',
+        'hap-nodejs'
+    ],
     treeshake: false,
     keepNames: true,
     cjsInterop: true,
