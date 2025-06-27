@@ -12,7 +12,7 @@ export default defineConfig({
     outDir: 'dist',
     splitting: false,
     bundle: true,
-    external: ['homebridge', 'hap-nodejs'],
+    external: ['homebridge'],
     treeshake: false,
     keepNames: true,
     cjsInterop: true,

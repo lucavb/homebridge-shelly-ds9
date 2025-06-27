@@ -1,5 +1,4 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
-import { HAPStorage } from 'hap-nodejs';
 
 import {
     Device,
@@ -186,8 +185,9 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
             .on('unknown', this.handleUnknownDevice, this)
             .on('error', this.handleError, this);
 
-        // Use HAPStorage for Homebridge v2 compatibility, with fallback to deprecated api.user.storagePath()
-        const storagePath = HAPStorage.storage().persistPath || api.user.storagePath() || '.';
+        const localStorage = api.hap.HAPStorage.storage();
+        const storagePath =
+            typeof localStorage.options?.dir === 'string' ? localStorage.options.dir : api.user.storagePath() || '.';
         this.deviceCache = new DeviceCache(storagePath, log);
 
         // wait for homebridge to finish launching
