@@ -7,13 +7,13 @@
         "homebridge-plugin",
         "shelly"
     ],
-    "homepage": "https://github.com/cubi1337/homebridge-shelly-ds9#readme",
+    "homepage": "https://github.com/lucavb/homebridge-shelly-ds9#readme",
     "bugs": {
-        "url": "https://github.com/cubi1337/homebridge-shelly-ds9/issues"
+        "url": "https://github.com/lucavb/homebridge-shelly-ds9/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/cubi1337/homebridge-shelly-ds9.git"
+        "url": "git+https://github.com/lucavb/homebridge-shelly-ds9.git"
     },
     "license": "GPL-3.0",
     "author": "Alexander Rydén",
