@@ -53,6 +53,7 @@
         "cq:typecheck": "tsc --noEmit",
         "publishd": "npm publish --dry-run",
         "test": "vitest run",
+        "test:ci": "vitest run --reporter=verbose",
         "test:watch": "vitest",
         "preversion": "npm run build && npm run cq",
         "postversion": "git push && git push --tags"
