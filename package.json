@@ -49,8 +49,7 @@
         "test": "vitest run",
         "test:ci": "vitest run --reporter=verbose",
         "test:watch": "vitest",
-        "preversion": "npm run build && npm run cq",
-        "postversion": "git push && git push --tags"
+        "preversion": "npm run build && npm run cq"
     },
     "dependencies": {
         "@lucavb/shellies-ds9": "1.1.9"
