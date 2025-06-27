@@ -1,0 +1,70 @@
+---
+description: Testing patterns and standards using Vitest
+globs: **/*.spec.ts
+alwaysApply: false
+---
+
+# Testing Standards
+
+## Test Structure
+- Use Vitest as the testing framework
+- Follow the existing test file naming: `*.spec.ts`
+- Organize tests in logical groups using `describe()` blocks
+- Use descriptive test names that explain the scenario
+
+## Test Patterns
+- Arrange-Act-Assert pattern for test structure
+- Use meaningful test data and scenarios
+- Mock external dependencies (device communication, HomeKit APIs)
+- Test both success and error scenarios
+
+## Configuration Testing
+- Test configuration parsing and validation
+- Verify default values are applied correctly
+- Test invalid configuration handling
+- Ensure proper error messages for configuration issues
+
+## Device Communication Testing
+- Mock device responses for consistent testing
+- Test error handling for network failures
+- Verify proper retry mechanisms
+- Test device status synchronization
+
+## Homebridge Integration Testing
+- Mock HomeKit services and characteristics
+- Test service registration and updates
+- Verify proper characteristic value handling
+- Test accessory lifecycle management
+
+## Best Practices
+- Keep tests focused and independent
+- Use proper TypeScript types in tests
+- Clean up resources after tests
+- Use factories or fixtures for complex test data
+- Group related tests logically
+
+## Example Test Structure
+```typescript
+describe('SwitchAbility', () => {
+    let ability: SwitchAbility;
+    let mockDevice: MockDevice;
+    let mockService: MockService;
+
+    beforeEach(() => {
+        // Setup test environment
+    });
+
+    describe('getOn', () => {
+        it('should return true when switch is on', async () => {
+            // Arrange
+            mockDevice.setStatus({ output: true });
+
+            // Act
+            const result = await ability.getOn();
+
+            // Assert
+            expect(result).toBe(true);
+        });
+    });
+});
+```

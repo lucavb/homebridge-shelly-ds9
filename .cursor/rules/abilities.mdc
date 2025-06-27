@@ -1,0 +1,62 @@
+---
+description: Ability implementation patterns for device capabilities
+globs: src/abilities/**/*.ts
+alwaysApply: false
+---
+
+# Ability Implementation
+
+## Class Structure
+- Extend `BaseAbility` class
+- Name classes with pattern: `[Capability]Ability` (e.g., `SwitchAbility`, `LightAbility`)
+- Export as default class from the module
+
+## Service Management
+- Each ability should manage a single HomeKit service
+- Use `this.service` to access the primary service
+- Add characteristics using the service's `addCharacteristic()` method
+
+## Characteristic Handling
+- Implement getter/setter methods for each characteristic
+- Use proper HomeKit characteristic types and values
+- Handle characteristic updates from both HomeKit and device
+
+## Device Communication
+- Access device status via `this.device`
+- Use device component IDs passed during ability creation
+- Implement proper error handling for device communication failures
+
+## State Synchronization
+- Update HomeKit characteristics when device state changes
+- Handle HomeKit requests by sending commands to device
+- Maintain consistency between device and HomeKit states
+
+## Logging
+- Use `this.log` for ability-specific logging
+- Include relevant context (device ID, component ID, action)
+- Use appropriate log levels (debug, info, warn, error)
+
+## Example Pattern
+```typescript
+export default class SwitchAbility extends BaseAbility {
+    protected setup() {
+        this.service = this.platformAccessory.getService(this.Service.Switch) ||
+            this.platformAccessory.addService(this.Service.Switch);
+
+        this.service.getCharacteristic(this.Characteristic.On)
+            .onGet(this.getOn.bind(this))
+            .onSet(this.setOn.bind(this));
+    }
+
+    protected async getOn(): Promise<boolean> {
+        return this.device.getComponentStatus(this.componentId)?.output ?? false;
+    }
+
+    protected async setOn(value: boolean) {
+        await this.device.callRpc('Switch.Set', {
+            id: this.componentId,
+            on: value
+        });
+    }
+}
+```

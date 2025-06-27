@@ -1,0 +1,32 @@
+---
+description: General coding standards and practices for this project
+globs: 
+alwaysApply: true
+---
+# Coding Standards
+
+## Comments Policy
+- **CRITICAL**: Do NOT add needless comments. Only add comments when they provide meaningful value:
+  - Explaining complex business logic or algorithms
+  - Documenting non-obvious decisions or workarounds
+  - Providing context for unusual patterns or edge cases
+  - TSDoc for public APIs and complex functions
+- Avoid redundant comments that just restate what the code does
+- Code should be self-documenting through clear naming and structure
+
+## Code Style
+- Follow existing ESLint/Prettier configuration
+- Use TypeScript strict mode patterns
+- Prefer explicit types where they add clarity
+- Use meaningful variable and function names
+- Keep functions focused and single-purpose
+
+## Error Handling
+- Use proper error types and meaningful error messages
+- Handle errors gracefully, especially for device communication
+- Log errors appropriately using the provided logger
+
+## Testing
+- Write tests for complex logic
+- Use descriptive test names that explain the scenario
+- Follow existing test patterns in the codebase

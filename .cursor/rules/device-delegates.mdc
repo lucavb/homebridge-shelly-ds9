@@ -1,0 +1,48 @@
+---
+description: Device delegate implementation patterns for Shelly devices
+globs: src/device-delegates/**/*.ts
+alwaysApply: false
+---
+
+# Device Delegate Implementation
+
+## Class Structure
+- Extend `DeviceDelegate` base class
+- Name classes with pattern: `Shelly[ModelName]` (e.g., `ShellyPlus1PM`)
+- Export as default class from the module
+
+## Required Methods
+- Implement `setupDeviceInformation()` for basic device info
+- Override `setup()` method to configure device capabilities
+- Use abilities to compose device functionality
+
+## Ability Integration
+- Import required abilities from `../abilities`
+- Add abilities using the `addAbility()` method
+- Configure abilities based on device capabilities and user settings
+- Common abilities: switch, light, cover, power-meter, outlet
+
+## Device Configuration
+- Access device options via `this.deviceOptions`
+- Handle optional features based on configuration
+- Validate device capabilities before adding abilities
+
+## Error Handling
+- Use proper error types for device-specific issues
+- Log meaningful error messages with device context
+- Handle missing device features gracefully
+
+## Example Pattern
+```typescript
+export default class ShellyPlus1PM extends DeviceDelegate {
+    protected setup() {
+        super.setup();
+
+        this.addAbility(SwitchAbility, 'switch:0');
+
+        if (this.device.profile !== 'cover') {
+            this.addAbility(PowerMeterAbility, 'switch:0');
+        }
+    }
+}
+```

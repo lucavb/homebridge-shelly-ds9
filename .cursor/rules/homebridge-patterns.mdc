@@ -1,0 +1,42 @@
+---
+description: Homebridge plugin development patterns and conventions
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Homebridge Plugin Development
+
+## Platform Structure
+- Follow the existing platform pattern with `ShellyPlatform` as the main class
+- Use dependency injection for services (logger, API, config)
+- Implement proper lifecycle management with `didFinishLaunching`
+
+## Device Delegates
+- Each device type should have its own delegate class in `device-delegates/`
+- Delegates should extend the base `DeviceDelegate` class
+- Follow the naming pattern: `shelly-[model-name].ts`
+- Implement proper device capability detection and setup
+
+## Abilities System
+- Use the abilities pattern for device capabilities
+- Each ability should be focused on a single HomeKit service
+- Abilities should be composable and reusable across device types
+- Follow the existing ability base class pattern
+
+## HomeKit Services
+- Use the custom characteristics and services from `utils/`
+- Properly handle service registration and updates
+- Follow HomeKit naming conventions for accessories and services
+- Implement proper state synchronization between device and HomeKit
+
+## Configuration
+- Use the `PlatformOptions` class for configuration parsing
+- Validate configuration options properly
+- Support both manual device configuration and auto-discovery
+- Handle missing or invalid configuration gracefully
+
+## Device Communication
+- Use the `@lucavb/shellies-ds9` library for device communication
+- Implement proper error handling for network operations
+- Handle device disconnections and reconnections gracefully
+- Use appropriate logging levels for different types of events
