@@ -68,7 +68,7 @@
         "eslint": "9.39.1",
         "homebridge": "1.11.1",
         "jiti": "2.6.1",
-        "prettier": "3.7.1",
+        "prettier": "3.7.3",
         "rimraf": "6.1.2",
         "semantic-release": "^25.0.0",
         "tsup": "8.5.1",
