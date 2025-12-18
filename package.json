@@ -64,7 +64,7 @@
         "@semantic-release/github": "^12.0.0",
         "@semantic-release/npm": "^13.0.0",
         "@semantic-release/release-notes-generator": "^14.0.0",
-        "@types/node": "22.19.2",
+        "@types/node": "22.19.3",
         "eslint": "9.39.1",
         "homebridge": "1.11.1",
         "jiti": "2.6.1",
