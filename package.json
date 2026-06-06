@@ -56,8 +56,8 @@
         "@lucavb/shellies-ds9": "1.1.9"
     },
     "devDependencies": {
-        "@commitlint/cli": "21.0.1",
-        "@commitlint/config-conventional": "21.0.1",
+        "@commitlint/cli": "21.0.2",
+        "@commitlint/config-conventional": "21.0.2",
         "@commitlint/types": "21.0.1",
         "@eslint/js": "10.0.1",
         "@semantic-release/commit-analyzer": "^13.0.0",
