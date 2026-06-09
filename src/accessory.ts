@@ -1,12 +1,58 @@
 import { DeviceId } from '@lucavb/shellies-ds9';
-import { PlatformAccessory } from 'homebridge';
+import { Categories, PlatformAccessory } from 'homebridge';
 
-import { Ability } from './abilities';
+import {
+    Ability,
+    CoverAbility,
+    LightAbility,
+    OutletAbility,
+    ReadonlySwitchAbility,
+    StatelessProgrammableSwitchAbility,
+    SwitchAbility,
+} from './abilities';
 import { DeviceLogger } from './utils/device-logger';
 import { ShellyPlatform } from './platform';
 
 export type AccessoryId = string;
 export type AccessoryUuid = string;
+
+export function resolveAccessoryCategory(abilities: Ability[]): Categories {
+    const active = abilities.filter((a) => a.active);
+
+    for (const a of active) {
+        if (a instanceof OutletAbility) {
+            return Categories.OUTLET;
+        }
+    }
+    for (const a of active) {
+        if (a instanceof SwitchAbility || a instanceof ReadonlySwitchAbility) {
+            return Categories.SWITCH;
+        }
+    }
+    for (const a of active) {
+        if (a instanceof LightAbility) {
+            return Categories.LIGHTBULB;
+        }
+    }
+    for (const a of active) {
+        if (a instanceof CoverAbility) {
+            if (a.type === 'door') {
+                return Categories.DOOR;
+            }
+            if (a.type === 'window') {
+                return Categories.WINDOW;
+            }
+            return Categories.WINDOW_COVERING;
+        }
+    }
+    for (const a of active) {
+        if (a instanceof StatelessProgrammableSwitchAbility) {
+            return Categories.PROGRAMMABLE_SWITCH;
+        }
+    }
+
+    return Categories.OTHER;
+}
 
 /**
  * Represents a HomeKit accessory.
@@ -175,8 +221,8 @@ export class Accessory {
      * Creates a new platform accessory for this accessory.
      */
     protected createPlatformAccessory(): PlatformAccessory {
-        // create a new accessory
-        const pa = new this.platform.api.platformAccessory(this.name, this.uuid);
+        const category = resolveAccessoryCategory(this.abilities);
+        const pa = new this.platform.api.platformAccessory(this.name, this.uuid, category);
 
         // store info in the context
         pa.context.device = {
