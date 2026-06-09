@@ -1,4 +1,4 @@
-import { ShellyPro4Pm, ShellyPro4PmV2 } from '@lucavb/shellies-ds9';
+import { ShellyPro4Pm, ShellyPro4PmV2, ShellyPro4PmV3 } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base';
 
@@ -16,4 +16,4 @@ export class ShellyPro4PmDelegate extends DeviceDelegate {
     }
 }
 
-DeviceDelegate.registerDelegate(ShellyPro4PmDelegate, ShellyPro4Pm, ShellyPro4PmV2);
+DeviceDelegate.registerDelegate(ShellyPro4PmDelegate, ShellyPro4Pm, ShellyPro4PmV2, ShellyPro4PmV3);
