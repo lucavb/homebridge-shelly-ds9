@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Categories } from 'homebridge';
-import type { Cover, Device, Input, Light, Switch } from '@lucavb/shellies-ds9';
+import type { Cover, Device, Input, Light, Rgb, Rgbw, Switch } from '@lucavb/shellies-ds9';
 
 import {
     AccessoryInformationAbility,
@@ -8,6 +8,8 @@ import {
     LightAbility,
     OutletAbility,
     PowerMeterAbility,
+    RgbLightAbility,
+    RgbwLightAbility,
     StatelessProgrammableSwitchAbility,
     SwitchAbility,
 } from './abilities';
@@ -15,6 +17,8 @@ import { resolveAccessoryCategory } from './accessory';
 
 const mockSwitch = { id: 0 } as Switch;
 const mockLight = { id: 0 } as Light;
+const mockRgb = { id: 0 } as Rgb;
+const mockRgbw = { id: 0 } as Rgbw;
 const mockCover = { id: 0 } as Cover;
 const mockInput = { id: 0 } as Input;
 const mockDevice = { id: 'shellyplus1-abc123' } as Device;
@@ -40,6 +44,18 @@ describe('resolveAccessoryCategory()', () => {
 
     it('should return LIGHTBULB for an active LightAbility', () => {
         const abilities = [new LightAbility(mockLight).setActive(true)];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.LIGHTBULB);
+    });
+
+    it('should return LIGHTBULB for an active RgbLightAbility', () => {
+        const abilities = [new RgbLightAbility(mockRgb).setActive(true)];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.LIGHTBULB);
+    });
+
+    it('should return LIGHTBULB for an active RgbwLightAbility', () => {
+        const abilities = [new RgbwLightAbility(mockRgbw).setActive(true)];
 
         expect(resolveAccessoryCategory(abilities)).toBe(Categories.LIGHTBULB);
     });

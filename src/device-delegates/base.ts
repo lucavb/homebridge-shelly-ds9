@@ -1,4 +1,4 @@
-import { ComponentLike, Cover, Device, Switch, Light } from '@lucavb/shellies-ds9';
+import { ComponentLike, Cover, Device, Switch, Light, Rgb, Rgbw } from '@lucavb/shellies-ds9';
 import { PlatformAccessory } from 'homebridge';
 
 import {
@@ -9,6 +9,8 @@ import {
     PowerMeterAbility,
     SwitchAbility,
     LightAbility,
+    RgbLightAbility,
+    RgbwLightAbility,
 } from '../abilities';
 import { Accessory, AccessoryId } from '../accessory';
 import { DeviceLogger } from '../utils/device-logger';
@@ -260,9 +262,52 @@ export abstract class DeviceDelegate {
         const id = o.single === true ? 'light' : `light-${light.id}`;
         const nameSuffix = o.single === true ? null : `Light ${light.id + 1}`;
 
-        return this.createAccessory(id, nameSuffix, new LightAbility(light)).setActive(
-            lightOpts.exclude !== true && o.active !== false,
-        );
+        return this.createAccessory(
+            id,
+            nameSuffix,
+            new LightAbility(light),
+            new PowerMeterAbility(light).setActive(light.apower !== undefined),
+        ).setActive(lightOpts.exclude !== true && o.active !== false);
+    }
+
+    /**
+     * Creates an accessory for an RGB light component.
+     * @param rgb - The RGB component to use.
+     * @param opts - Options for the light.
+     */
+    protected addRgbLight(rgb: Rgb, opts?: Partial<AddLightOptions>): Accessory {
+        const o = opts ?? {};
+        const lightOpts = this.getComponentOptions<LightOptions>(rgb) ?? {};
+
+        const id = o.single === true ? 'rgb' : `rgb-${rgb.id}`;
+        const nameSuffix = o.single === true ? null : `RGB Light ${rgb.id + 1}`;
+
+        return this.createAccessory(
+            id,
+            nameSuffix,
+            new RgbLightAbility(rgb),
+            new PowerMeterAbility(rgb).setActive(rgb.apower !== undefined),
+        ).setActive(lightOpts.exclude !== true && o.active !== false);
+    }
+
+    /**
+     * Creates an accessory for an RGBW light component.
+     * @param rgbw - The RGBW component to use.
+     * @param opts - Options for the light.
+     */
+    protected addRgbwLight(rgbw: Rgbw, opts?: Partial<AddLightOptions>): Accessory {
+        const o = opts ?? {};
+        const lightOpts = this.getComponentOptions<LightOptions>(rgbw) ?? {};
+
+        const id = o.single === true ? 'rgbw' : `rgbw-${rgbw.id}`;
+        const nameSuffix = o.single === true ? null : `RGBW Light ${rgbw.id + 1}`;
+
+        return this.createAccessory(
+            id,
+            nameSuffix,
+            new RgbwLightAbility(rgbw),
+            new PowerMeterAbility(rgbw).setActive(rgbw.apower !== undefined),
+        ).setActive(lightOpts.exclude !== true && o.active !== false);
     }
 
     /**

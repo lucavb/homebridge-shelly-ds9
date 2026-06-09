@@ -5,6 +5,8 @@ import {
     Ability,
     CoverAbility,
     LightAbility,
+    RgbLightAbility,
+    RgbwLightAbility,
     OutletAbility,
     ReadonlySwitchAbility,
     StatelessProgrammableSwitchAbility,
@@ -30,7 +32,7 @@ export function resolveAccessoryCategory(abilities: Ability[]): Categories {
         }
     }
     for (const a of active) {
-        if (a instanceof LightAbility) {
+        if (a instanceof LightAbility || a instanceof RgbLightAbility || a instanceof RgbwLightAbility) {
             return Categories.LIGHTBULB;
         }
     }

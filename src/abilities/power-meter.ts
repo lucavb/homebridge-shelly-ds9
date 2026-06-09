@@ -1,6 +1,9 @@
 import {
     CharacteristicValue as ShelliesCharacteristicValue,
     Cover,
+    Light,
+    Rgb,
+    Rgbw,
     Switch,
     SwitchEnergyCounterAttributes,
 } from '@lucavb/shellies-ds9';
@@ -14,7 +17,7 @@ export class PowerMeterAbility extends Ability {
     /**
      * @param component - The switch or cover component to get readings from.
      */
-    constructor(readonly component: Switch | Cover) {
+    constructor(readonly component: Switch | Cover | Light | Rgb | Rgbw) {
         super(`Power Meter ${component.id + 1}`, `power-meter-${component.id}`);
     }
 
