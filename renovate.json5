@@ -1,6 +1,12 @@
 {
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-    extends: ['config:recommended', ':automergeLinters', ':automergeTesters', ':automergeTypes'],
+    extends: [
+        'config:recommended',
+        ':automergeLinters',
+        ':automergeTesters',
+        ':automergeTypes',
+        ':automergeRequireAllStatusChecks',
+    ],
     addLabels: ['dependencies'],
     automergeType: 'branch',
     prConcurrentLimit: 5,
@@ -8,6 +14,11 @@
     semanticCommits: 'enabled',
     semanticCommitType: 'chore',
     semanticCommitScope: 'deps',
+    vulnerabilityAlerts: {
+        enabled: true,
+        labels: ['security-update'],
+        automerge: true,
+    },
     packageRules: [
         {
             matchUpdateTypes: ['patch'],
@@ -29,19 +40,18 @@
             addLabels: ['automerge:dev-patch'],
         },
         {
+            matchPackageNames: ['typescript', 'tsdown', 'typescript-eslint', 'vitest', 'eslint', 'homebridge'],
+            matchUpdateTypes: ['major'],
+            automerge: false,
+            dependencyDashboardApproval: true,
+            reviewers: ['lucavb'],
+            addLabels: ['manual-review:toolchain-major'],
+        },
+        {
             matchUpdateTypes: ['major'],
             automerge: false,
             addLabels: ['manual-review:major'],
             reviewers: ['lucavb'],
-        },
-        {
-            matchDatasources: ['npm'],
-            vulnerabilityAlerts: {
-                enabled: true,
-            },
-            matchCurrentAge: '0 days',
-            automerge: true,
-            addLabels: ['security-update'],
         },
     ],
     timezone: 'Europe/Berlin',

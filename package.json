@@ -38,9 +38,9 @@
         "config.schema.json"
     ],
     "scripts": {
-        "build": "rimraf ./dist && tsup",
+        "build": "tsdown",
         "commitlint": "commitlint --edit",
-        "cq": "npm run cq:typecheck && npm run cq:eslint && npm run cq:prettier",
+        "cq": "npm run cq:typecheck && npm run cq:eslint && npm run cq:prettier && npm run build",
         "cq:eslint": "eslint . --max-warnings=0",
         "cq:eslint:fix": "eslint . --max-warnings=0 --fix",
         "cq:prettier": "prettier --check .",
@@ -71,7 +71,7 @@
         "prettier": "3.8.3",
         "rimraf": "6.1.3",
         "semantic-release": "^25.0.0",
-        "tsup": "8.5.1",
+        "tsdown": "0.22.2",
         "typescript": "6.0.3",
         "typescript-eslint": "8.60.1",
         "vitest": "4.1.8"
