@@ -1,6 +1,6 @@
 import { ShellyPlusPMDimmer } from '@lucavb/shellies-ds9';
 
-import { DeviceDelegate } from './base';
+import { DeviceDelegate } from './base.ts';
 
 /**
  * Handles Shelly Pro Dimmer 1PM devices.

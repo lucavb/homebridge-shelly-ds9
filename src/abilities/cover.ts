@@ -1,7 +1,7 @@
 import { CharacteristicValue } from 'homebridge';
 import { Cover } from '@lucavb/shellies-ds9';
 
-import { Ability, ServiceClass } from './base';
+import { Ability, ServiceClass } from './base.ts';
 
 const names = {
     door: 'Door',
@@ -103,7 +103,7 @@ export class CoverAbility extends Ability {
             await this.component.goToPosition(value as number);
         } catch (e) {
             this.log.error('Failed to set target position:', e instanceof Error ? e.message : e);
-            throw this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE;
+            throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
     }
 

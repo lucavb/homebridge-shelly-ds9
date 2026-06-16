@@ -1,7 +1,7 @@
 import { ShellyPlusI4, ShellyPlusI4V3 } from '@lucavb/shellies-ds9';
 
-import { DeviceDelegate } from './base';
-import { ReadonlySwitchAbility, ServiceLabelAbility, StatelessProgrammableSwitchAbility } from '../abilities';
+import { DeviceDelegate } from './base.ts';
+import { ReadonlySwitchAbility, ServiceLabelAbility, StatelessProgrammableSwitchAbility } from '../abilities/index.ts';
 
 /**
  * Handles Shelly Plus I4 devices.

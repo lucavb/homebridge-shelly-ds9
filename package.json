@@ -31,8 +31,22 @@
     "license": "GPL-3.0",
     "author": "Alexander Rydén",
     "sideEffects": false,
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
     "files": [
         "dist",
         "config.schema.json"
@@ -66,7 +80,7 @@
         "@semantic-release/release-notes-generator": "^14.0.0",
         "@types/node": "24.13.2",
         "eslint": "10.5.0",
-        "homebridge": "1.11.4",
+        "homebridge": "2.1.0",
         "jiti": "2.7.0",
         "prettier": "3.8.4",
         "rimraf": "6.1.3",
@@ -76,9 +90,12 @@
         "typescript-eslint": "8.61.0",
         "vitest": "4.1.8"
     },
+    "peerDependencies": {
+        "homebridge": "^1.6.0 || ^2.0.0"
+    },
     "engines": {
-        "homebridge": "^1.6.0 || ^2.0.0-beta.0",
-        "node": "^22 || ^24"
+        "homebridge": "^1.6.0 || ^2.0.0",
+        "node": "^22.12.0 || ^24.0.0"
     },
     "publishConfig": {
         "access": "public"

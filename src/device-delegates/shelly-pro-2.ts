@@ -1,6 +1,6 @@
 import { ShellyPro2, ShellyPro2Rev1, ShellyPro2Rev2 } from '@lucavb/shellies-ds9';
 
-import { DeviceDelegate } from './base';
+import { DeviceDelegate } from './base.ts';
 
 /**
  * Handles Shelly Pro 2 devices.

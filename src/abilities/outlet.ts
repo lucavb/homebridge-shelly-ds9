@@ -1,7 +1,7 @@
 import { CharacteristicValue } from 'homebridge';
 import { CharacteristicValue as ShelliesCharacteristicValue, Switch } from '@lucavb/shellies-ds9';
 
-import { Ability, ServiceClass } from './base';
+import { Ability, ServiceClass } from './base.ts';
 
 export class OutletAbility extends Ability {
     /**
@@ -51,7 +51,7 @@ export class OutletAbility extends Ability {
             await this.component.set(value as boolean);
         } catch (e) {
             this.log.error('Failed to set switch:', e instanceof Error ? e.message : e);
-            throw this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE;
+            throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
     }
 

@@ -9,11 +9,11 @@ import {
     Shellies,
 } from '@lucavb/shellies-ds9';
 
-import { CustomCharacteristics, createCharacteristics } from './utils/characteristics';
-import { CustomServices, createServices } from './utils/services';
-import { DeviceCache } from './utils/device-cache';
-import { DeviceDelegate } from './device-delegates';
-import { PlatformOptions } from './config';
+import { CustomCharacteristics, createCharacteristics } from './utils/characteristics.ts';
+import { CustomServices, createServices } from './utils/services.ts';
+import { DeviceCache } from './utils/device-cache.ts';
+import { DeviceDelegate } from './device-delegates/index.ts';
+import { PlatformOptions } from './config.ts';
 
 type AccessoryUuid = string;
 

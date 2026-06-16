@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceCache, type CachedDeviceInfo } from './device-cache';
+import { DeviceCache, type CachedDeviceInfo } from './device-cache.ts';
 import type { Logger } from 'homebridge';
 import { Device } from '@lucavb/shellies-ds9';
 

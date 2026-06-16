@@ -1,7 +1,7 @@
-import { API } from 'homebridge';
+import type { API } from 'homebridge';
 
-import { PLATFORM_NAME, ShellyPlatform } from './platform';
+import { PLATFORM_NAME, ShellyPlatform } from './platform.ts';
 
-export = (api: API) => {
+export default (api: API) => {
     api.registerPlatform(PLATFORM_NAME, ShellyPlatform);
 };

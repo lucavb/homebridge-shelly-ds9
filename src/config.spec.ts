@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PlatformOptions } from './config';
+import { PlatformOptions } from './config.ts';
 import type { PlatformConfig } from 'homebridge';
 
 describe('PlatformOptions', () => {

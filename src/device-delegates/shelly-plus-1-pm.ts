@@ -6,7 +6,7 @@ import {
     ShellyPlus1PmMiniV3,
 } from '@lucavb/shellies-ds9';
 
-import { DeviceDelegate } from './base';
+import { DeviceDelegate } from './base.ts';
 
 /**
  * Handles Shelly Plus 1PM devices.

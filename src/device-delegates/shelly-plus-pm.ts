@@ -1,8 +1,8 @@
 import { ShellyPlusPmMini, ShellyPlusPmMiniV3 } from '@lucavb/shellies-ds9';
 
-import { DeviceDelegate } from './base';
+import { DeviceDelegate } from './base.ts';
 
-import { Pm1Ability } from '../abilities';
+import { Pm1Ability } from '../abilities/index.ts';
 
 /**
  * Handles Shelly Plus 1PM devices.

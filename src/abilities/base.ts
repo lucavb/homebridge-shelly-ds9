@@ -1,9 +1,9 @@
 import { API, Characteristic, PlatformAccessory, Service, WithUUID } from 'homebridge';
 
-import { CustomCharacteristics } from '../utils/characteristics';
-import { CustomServices } from '../utils/services';
-import { DeviceLogger } from '../utils/device-logger';
-import { ShellyPlatform } from '../platform';
+import { CustomCharacteristics } from '../utils/characteristics.ts';
+import { CustomServices } from '../utils/services.ts';
+import { DeviceLogger } from '../utils/device-logger.ts';
+import { ShellyPlatform } from '../platform.ts';
 
 export type ServiceClass = WithUUID<typeof Service>;
 

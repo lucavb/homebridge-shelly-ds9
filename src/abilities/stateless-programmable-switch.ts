@@ -1,6 +1,6 @@
 import { Input } from '@lucavb/shellies-ds9';
 
-import { Ability, ServiceClass } from './base';
+import { Ability, ServiceClass } from './base.ts';
 
 enum ButtonPress {
     Single = 'single',

@@ -9,11 +9,11 @@ import {
     PowerMeterAbility,
     SwitchAbility,
     LightAbility,
-} from '../abilities';
-import { Accessory, AccessoryId } from '../accessory';
-import { DeviceLogger } from '../utils/device-logger';
-import { CoverOptions, DeviceOptions, SwitchOptions, LightOptions } from '../config';
-import { ShellyPlatform } from '../platform';
+} from '../abilities/index.ts';
+import { Accessory, AccessoryId } from '../accessory.ts';
+import { DeviceLogger } from '../utils/device-logger.ts';
+import { CoverOptions, DeviceOptions, SwitchOptions, LightOptions } from '../config.ts';
+import { ShellyPlatform } from '../platform.ts';
 
 /**
  * Describes a device delegate class.

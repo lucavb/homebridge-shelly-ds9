@@ -9,9 +9,9 @@ import {
     ReadonlySwitchAbility,
     StatelessProgrammableSwitchAbility,
     SwitchAbility,
-} from './abilities';
-import { DeviceLogger } from './utils/device-logger';
-import { ShellyPlatform } from './platform';
+} from './abilities/index.ts';
+import { DeviceLogger } from './utils/device-logger.ts';
+import { ShellyPlatform } from './platform.ts';
 
 export type AccessoryId = string;
 export type AccessoryUuid = string;

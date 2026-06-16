@@ -1,7 +1,7 @@
 //import { Perms } from "homebridge";
 import { CharacteristicValue as ShelliesCharacteristicValue, Pm1, Pm1AenergyStatus } from '@lucavb/shellies-ds9';
 
-import { Ability, ServiceClass } from './base';
+import { Ability, ServiceClass } from './base.ts';
 
 /**
  * This ability sets up a custom service that reports power meter readings.

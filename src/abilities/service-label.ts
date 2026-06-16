@@ -1,4 +1,4 @@
-import { Ability, ServiceClass } from './base';
+import { Ability, ServiceClass } from './base.ts';
 
 export class ServiceLabelAbility extends Ability {
     /**

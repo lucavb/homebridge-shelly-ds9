@@ -5,7 +5,7 @@ import {
     SwitchEnergyCounterAttributes,
 } from '@lucavb/shellies-ds9';
 
-import { Ability, ServiceClass } from './base';
+import { Ability, ServiceClass } from './base.ts';
 
 /**
  * This ability sets up a custom service that reports power meter readings.

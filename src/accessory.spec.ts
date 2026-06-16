@@ -10,8 +10,8 @@ import {
     PowerMeterAbility,
     StatelessProgrammableSwitchAbility,
     SwitchAbility,
-} from './abilities';
-import { resolveAccessoryCategory } from './accessory';
+} from './abilities/index.ts';
+import { resolveAccessoryCategory } from './accessory.ts';
 
 const mockSwitch = { id: 0 } as Switch;
 const mockLight = { id: 0 } as Light;
