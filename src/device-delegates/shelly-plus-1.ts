@@ -1,4 +1,14 @@
-import { ShellyPlus1, ShellyPlus1Ul, ShellyPlus1V3, ShellyPlus1Mini, ShellyPlus1MiniV3 } from '@lucavb/shellies-ds9';
+import {
+    Shelly1LGen3,
+    ShellyGen4One,
+    ShellyGen4OneAnz,
+    ShellyGen4OneMini,
+    ShellyPlus1,
+    ShellyPlus1Ul,
+    ShellyPlus1V3,
+    ShellyPlus1Mini,
+    ShellyPlus1MiniV3,
+} from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base.ts';
 
@@ -20,4 +30,8 @@ DeviceDelegate.registerDelegate(
     ShellyPlus1V3,
     ShellyPlus1Mini,
     ShellyPlus1MiniV3,
+    ShellyGen4One,
+    ShellyGen4OneMini,
+    ShellyGen4OneAnz,
+    Shelly1LGen3,
 );

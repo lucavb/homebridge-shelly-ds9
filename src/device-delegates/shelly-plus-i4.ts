@@ -1,4 +1,4 @@
-import { ShellyPlusI4, ShellyPlusI4V3 } from '@lucavb/shellies-ds9';
+import { ShellyPlusI4, ShellyPlusI4Dc, ShellyPlusI4V3 } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base.ts';
 import { ReadonlySwitchAbility, ServiceLabelAbility, StatelessProgrammableSwitchAbility } from '../abilities/index.ts';
@@ -35,4 +35,4 @@ export class ShellyPlusI4Delegate extends DeviceDelegate {
     }
 }
 
-DeviceDelegate.registerDelegate(ShellyPlusI4Delegate, ShellyPlusI4, ShellyPlusI4V3);
+DeviceDelegate.registerDelegate(ShellyPlusI4Delegate, ShellyPlusI4, ShellyPlusI4V3, ShellyPlusI4Dc);

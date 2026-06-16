@@ -1,4 +1,4 @@
-import { ShellyGen32Pm, ShellyPlus2Pm, ShellyPlus2PmRev1 } from '@lucavb/shellies-ds9';
+import { ShellyGen32Pm, ShellyGen42Pm, ShellyGen42PmAnz, ShellyPlus2Pm, ShellyPlus2PmRev1 } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base.ts';
 
@@ -17,4 +17,11 @@ export class ShellyPlus2PmDelegate extends DeviceDelegate {
     }
 }
 
-DeviceDelegate.registerDelegate(ShellyPlus2PmDelegate, ShellyPlus2Pm, ShellyPlus2PmRev1, ShellyGen32Pm);
+DeviceDelegate.registerDelegate(
+    ShellyPlus2PmDelegate,
+    ShellyPlus2Pm,
+    ShellyPlus2PmRev1,
+    ShellyGen32Pm,
+    ShellyGen42Pm,
+    ShellyGen42PmAnz,
+);

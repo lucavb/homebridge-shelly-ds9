@@ -1,9 +1,14 @@
 import {
+    ShellyOutdoorPlugSG3Eu,
+    ShellyPlugAzG3Eu,
+    ShellyPlugMG3Eu,
+    ShellyPlugPmG3Eu,
+    ShellyPlugSG3Eu,
+    ShellyPlugUsG4,
     ShellyPlusPlugUs,
     ShellyPlusPlugEu,
     ShellyPlusPlugIt,
     ShellyPlusPlugUk,
-    ShellyPlugSG3Eu,
 } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base.ts';
@@ -26,4 +31,9 @@ DeviceDelegate.registerDelegate(
     ShellyPlusPlugIt,
     ShellyPlusPlugUk,
     ShellyPlugSG3Eu,
+    ShellyPlugAzG3Eu,
+    ShellyOutdoorPlugSG3Eu,
+    ShellyPlugMG3Eu,
+    ShellyPlugPmG3Eu,
+    ShellyPlugUsG4,
 );

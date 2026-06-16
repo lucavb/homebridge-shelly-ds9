@@ -17,3 +17,5 @@ export * from './shelly-pro-dimmer-2-pm.ts';
 export * from './shelly-pro-dual-cover-pm.ts';
 export * from './shelly-plus-dimmer-pm.ts';
 export * from './shelly-plus-dimmer.ts';
+export * from './shelly-gen4-mini.ts';
+export * from './shelly-gen4-power-strip-4.ts';

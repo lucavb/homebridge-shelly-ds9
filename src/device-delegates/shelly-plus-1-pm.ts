@@ -1,4 +1,6 @@
 import {
+    ShellyGen4OnePm,
+    ShellyGen4OnePmAnz,
     ShellyPlus1Pm,
     ShellyPlus1PmUl,
     ShellyPlus1PmV3,
@@ -26,4 +28,6 @@ DeviceDelegate.registerDelegate(
     ShellyPlus1PmV3,
     ShellyPlus1PmMini,
     ShellyPlus1PmMiniV3,
+    ShellyGen4OnePm,
+    ShellyGen4OnePmAnz,
 );
