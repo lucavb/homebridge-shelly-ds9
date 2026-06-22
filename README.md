@@ -4,12 +4,8 @@
 
 [![npm-version](https://badgen.net/npm/v/@lucavb/homebridge-shelly-ds9)](https://www.npmjs.com/package/@lucavb/homebridge-shelly-ds9)
 
-[Homebridge](https://homebridge.io) plugin for [Shelly](https://shelly.cloud),
-enabling HomeKit support for the next generation of Shelly devices. This package extends [homebridge-shelly-ng](https://www.npmjs.com/package/homebridge-shelly-ng) with additional Gen4 device support.
-
-<a href='https://ko-fi.com/cubi1337' target='_blank'><img height='35' style='border:0px;height:46px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee at ko-fi.com' />
-
-For the first generation, see [homebridge-shelly](https://github.com/alexryd/homebridge-shelly).
+[Homebridge](https://homebridge.io) plugin for [Shelly](https://shelly.cloud) Gen2/Gen3/Gen4 devices,
+enabling HomeKit support via mDNS discovery and WebSocket RPC.
 
 ## Supported devices
 
@@ -128,7 +124,7 @@ See below for descriptions of each configuration option.
 | Option                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `devices`                      | An array of one or more objects with options for specific devices.                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `devices. id`                  | The device ID. [Here's how to find it](https://github.com/alexryd/homebridge-shelly-ng/wiki/Finding-a-device-ID).                                                                                                                                                                                                                                                                                                                                                                  |
+| `devices. id`                  | The device ID, e.g. `shellyplus1-abcdef123456`. Find it in the Shelly app under device settings, or in the device web UI hostname.                                                                                                                                                                                                                                                                                                                                                 |
 | `devices. name`                | The name of the device. This will be shown in the homebridge log and will be used as the default name when the device is added to HomeKit. Note though that setting this value after the device has been added will not change the name in HomeKit. If no name is specified, this plugin will use the device name set in the Shelly app, or the name of the device model.                                                                                                          |
 | `devices. exclude`             | Set this option to `true` to make this plugin ignore this device.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `devices. hostname`            | The IP address or hostname of the device. Set this value if your device can't be discovered automatically.                                                                                                                                                                                                                                                                                                                                                                         |
@@ -144,3 +140,12 @@ See below for descriptions of each configuration option.
 | `websocket. requestTimeout`    | The time, in seconds, to wait for a response before a request is aborted.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `websocket. pingInterval`      | The interval, in seconds, at which ping requests should be made to verify that the connection is open. Set to `0` to disable.                                                                                                                                                                                                                                                                                                                                                      |
 | `websocket. reconnectInterval` | The interval, in seconds, at which a connection attempt should be made after a socket has been closed. If an array or a comma-separated list of numbers is specified, the first value will be used for the first connection attempt, the second value for the second attempt and so on. When the last value has been reached, it will be used for all subsequent connection attempts; unless the value is `0`, in which case no more attempts will be made. Set to `0` to disable. |
+
+## Maintainer
+
+Maintained by [Luca Becker](https://luca-becker.me) ([hello@luca-becker.me](mailto:hello@luca-becker.me)).
+
+## Credits
+
+Forked from [homebridge-shelly-ng](https://github.com/alexryd/homebridge-shelly-ng) by Alexander Rydén.
+For first-generation Shelly devices, see [homebridge-shelly](https://github.com/alexryd/homebridge-shelly).

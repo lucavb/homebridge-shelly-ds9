@@ -5,7 +5,7 @@ import type { PlatformConfig } from 'homebridge';
 describe('PlatformOptions', () => {
     describe('constructor', () => {
         it('should use default values for empty config', () => {
-            const config: PlatformConfig = { platform: 'ShellyNG' };
+            const config: PlatformConfig = { platform: 'ShellyDS9' };
             const options = new PlatformOptions(config);
 
             expect(options.mdns.enable).toBe(true);
@@ -16,7 +16,7 @@ describe('PlatformOptions', () => {
 
         it('should merge custom mDNS options with defaults', () => {
             const config: PlatformConfig = {
-                platform: 'ShellyNG',
+                platform: 'ShellyDS9',
                 mdns: {
                     enable: false,
                     interface: 'eth0',
@@ -30,7 +30,7 @@ describe('PlatformOptions', () => {
 
         it('should handle websocket.reconnectInterval as comma-separated string', () => {
             const config: PlatformConfig = {
-                platform: 'ShellyNG',
+                platform: 'ShellyDS9',
                 websocket: {
                     reconnectInterval: '1,2,5,10',
                 },
@@ -42,7 +42,7 @@ describe('PlatformOptions', () => {
 
         it('should parse device configuration', () => {
             const config: PlatformConfig = {
-                platform: 'ShellyNG',
+                platform: 'ShellyDS9',
                 devices: [
                     {
                         id: 'shellyplus1-abcd1234',
@@ -71,7 +71,7 @@ describe('PlatformOptions', () => {
 
         it('should normalize device IDs to lowercase', () => {
             const config: PlatformConfig = {
-                platform: 'ShellyNG',
+                platform: 'ShellyDS9',
                 devices: [
                     {
                         id: 'ShellyPlus1-ABCD1234',
@@ -89,7 +89,7 @@ describe('PlatformOptions', () => {
 
     describe('getDeviceOptions()', () => {
         it('should return default options for unknown device', () => {
-            const config: PlatformConfig = { platform: 'ShellyNG' };
+            const config: PlatformConfig = { platform: 'ShellyDS9' };
             const options = new PlatformOptions(config);
 
             const device = options.getDeviceOptions('unknown-device');
@@ -101,7 +101,7 @@ describe('PlatformOptions', () => {
 
         it('should handle switch-specific options', () => {
             const config: PlatformConfig = {
-                platform: 'ShellyNG',
+                platform: 'ShellyDS9',
                 devices: [
                     {
                         id: 'shellypro4pm-test',

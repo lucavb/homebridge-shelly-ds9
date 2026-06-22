@@ -29,7 +29,11 @@
         "url": "git+https://github.com/lucavb/homebridge-shelly-ds9.git"
     },
     "license": "GPL-3.0",
-    "author": "Alexander Rydén",
+    "author": {
+        "name": "Luca Becker",
+        "email": "hello@luca-becker.me",
+        "url": "https://luca-becker.me"
+    },
     "sideEffects": false,
     "type": "module",
     "main": "./dist/index.cjs",

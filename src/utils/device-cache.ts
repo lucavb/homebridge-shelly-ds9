@@ -4,7 +4,8 @@ import { resolve } from 'path';
 
 import { Device, DeviceId, WebSocketRpcHandler } from '@lucavb/shellies-ds9';
 
-const FILENAME = '.shelly-ng.json';
+const FILENAME = '.shelly-ds9.json';
+const LEGACY_FILENAME = '.shelly-ng.json';
 
 const SAVE_DELAY = 1000;
 
@@ -41,6 +42,11 @@ export class DeviceCache {
     readonly path: string;
 
     /**
+     * A path to the legacy cache file from the upstream plugin.
+     */
+    readonly legacyPath: string;
+
+    /**
      * Holds all devices loaded from the cache file.
      */
     protected devices = new Map<DeviceId, CachedDeviceInfo>();
@@ -56,33 +62,44 @@ export class DeviceCache {
         readonly log: Logger,
     ) {
         this.path = resolve(storagePath, FILENAME);
+        this.legacyPath = resolve(storagePath, LEGACY_FILENAME);
     }
 
     /**
      * Loads cached devices.
      */
     async load() {
-        // remove any previously loaded devices
         this.devices.clear();
 
-        try {
-            // see if the cache file exists
-            await fs.access(this.path);
-        } catch {
-            // the file doesn't exist
+        let data: string | undefined;
+        let loadedFromLegacy = false;
+
+        for (const filePath of [this.path, this.legacyPath]) {
+            try {
+                await fs.access(filePath);
+                data = await fs.readFile(filePath, { encoding: 'utf8' });
+                loadedFromLegacy = filePath === this.legacyPath;
+                break;
+            } catch {
+                // try next path
+            }
+        }
+
+        if (data === undefined) {
             this.log.debug('Device cache file ' + this.path + ' not found');
             return;
         }
 
-        // read the file
-        const data: string = await fs.readFile(this.path, { encoding: 'utf8' });
         const s = JSON.parse(data) as DeviceStorage;
 
         this.log.debug(`Loaded ${s.devices.length} device(s) from cache`);
 
-        // store the loaded devices
         for (const d of s.devices) {
             this.devices.set(d.id, d);
+        }
+
+        if (loadedFromLegacy) {
+            this.saveDelayed();
         }
     }
 

@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { promises as fs } from 'fs';
+import { mkdtemp } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { DeviceCache, type CachedDeviceInfo } from './device-cache.ts';
 import type { Logger } from 'homebridge';
 import { Device } from '@lucavb/shellies-ds9';
@@ -137,6 +141,44 @@ describe('DeviceCache', () => {
                 protocol: 'http',
                 hostname: undefined,
             });
+        });
+    });
+
+    describe('load()', () => {
+        let tempDir: string;
+
+        beforeEach(async () => {
+            tempDir = await mkdtemp(join(tmpdir(), 'device-cache-test-'));
+        });
+
+        afterEach(async () => {
+            await fs.rm(tempDir, { recursive: true, force: true });
+        });
+
+        it('should load devices from the legacy cache file and migrate on save', async () => {
+            const legacyPath = join(tempDir, '.shelly-ng.json');
+            const cachePath = join(tempDir, '.shelly-ds9.json');
+            const deviceInfo: CachedDeviceInfo = {
+                id: 'shellyplus1-legacy123',
+                model: 'ShellyPlus1',
+                protocol: 'websocket',
+                hostname: '192.168.1.50',
+            };
+
+            await fs.writeFile(legacyPath, JSON.stringify({ devices: [deviceInfo] }));
+
+            const cache = new DeviceCache(tempDir, mockLogger);
+            await cache.load();
+
+            expect(cache.get('shellyplus1-legacy123')).toEqual(deviceInfo);
+
+            await new Promise((resolve) => setTimeout(resolve, 1100));
+
+            await expect(fs.access(cachePath)).resolves.toBeUndefined();
+            const migrated = JSON.parse(await fs.readFile(cachePath, { encoding: 'utf8' })) as {
+                devices: CachedDeviceInfo[];
+            };
+            expect(migrated.devices).toEqual([deviceInfo]);
         });
     });
 
