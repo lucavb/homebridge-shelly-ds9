@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { Categories } from 'homebridge';
-import type { Cover, Device, Input, Light, Switch } from '@lucavb/shellies-ds9';
+import type { Cover, Device, Humidity, Input, Light, Switch, Temperature } from '@lucavb/shellies-ds9';
 
 import {
     AccessoryInformationAbility,
     CoverAbility,
+    HumiditySensorAbility,
     LightAbility,
     OutletAbility,
     PowerMeterAbility,
     StatelessProgrammableSwitchAbility,
     SwitchAbility,
+    TemperatureSensorAbility,
 } from './abilities/index.ts';
 import { resolveAccessoryCategory } from './accessory.ts';
 
@@ -17,6 +19,8 @@ const mockSwitch = { id: 0 } as Switch;
 const mockLight = { id: 0 } as Light;
 const mockCover = { id: 0 } as Cover;
 const mockInput = { id: 0 } as Input;
+const mockTemperature = { id: 100 } as Temperature;
+const mockHumidity = { id: 100 } as Humidity;
 const mockDevice = { id: 'shellyplus1-abc123' } as Device;
 
 describe('resolveAccessoryCategory()', () => {
@@ -75,5 +79,14 @@ describe('resolveAccessoryCategory()', () => {
         const abilities = [new StatelessProgrammableSwitchAbility(mockInput).setActive(true)];
 
         expect(resolveAccessoryCategory(abilities)).toBe(Categories.PROGRAMMABLE_SWITCH);
+    });
+
+    it('should return SENSOR for add-on temperature and humidity abilities', () => {
+        const abilities = [
+            new TemperatureSensorAbility(mockTemperature).setActive(true),
+            new HumiditySensorAbility(mockHumidity).setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.SENSOR);
     });
 });

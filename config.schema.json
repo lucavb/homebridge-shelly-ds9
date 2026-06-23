@@ -190,6 +190,72 @@
                                     "default": "window"
                                 }
                             }
+                        },
+                        "temperature:100": {
+                            "title": "Add-on temperature sensor 100",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this temperature sensor",
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "temperature:101": {
+                            "title": "Add-on temperature sensor 101",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this temperature sensor",
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "temperature:102": {
+                            "title": "Add-on temperature sensor 102",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this temperature sensor",
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "temperature:103": {
+                            "title": "Add-on temperature sensor 103",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this temperature sensor",
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "temperature:104": {
+                            "title": "Add-on temperature sensor 104",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this temperature sensor",
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
+                        },
+                        "humidity:100": {
+                            "title": "Add-on humidity sensor 100",
+                            "type": "object",
+                            "properties": {
+                                "exclude": {
+                                    "title": "Exclude this humidity sensor",
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            }
                         }
                     }
                 }
@@ -258,6 +324,48 @@
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/\\s*(?:shellyplus2pm|shellypro2pm)-/i) !== null"
                     },
                     "items": ["devices[].cover:0.exclude", "devices[].cover:0.type"]
+                },
+                {
+                    "key": "devices[].temperature:100",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].temperature:100.exclude"]
+                },
+                {
+                    "key": "devices[].temperature:101",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].temperature:101.exclude"]
+                },
+                {
+                    "key": "devices[].temperature:102",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].temperature:102.exclude"]
+                },
+                {
+                    "key": "devices[].temperature:103",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].temperature:103.exclude"]
+                },
+                {
+                    "key": "devices[].temperature:104",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].temperature:104.exclude"]
+                },
+                {
+                    "key": "devices[].humidity:100",
+                    "condition": {
+                        "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
+                    },
+                    "items": ["devices[].humidity:100.exclude"]
                 }
             ]
         },

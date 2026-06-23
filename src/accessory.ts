@@ -4,11 +4,13 @@ import { Categories, PlatformAccessory } from 'homebridge';
 import {
     Ability,
     CoverAbility,
+    HumiditySensorAbility,
     LightAbility,
     OutletAbility,
     ReadonlySwitchAbility,
     StatelessProgrammableSwitchAbility,
     SwitchAbility,
+    TemperatureSensorAbility,
 } from './abilities/index.ts';
 import { DeviceLogger } from './utils/device-logger.ts';
 import { ShellyPlatform } from './platform.ts';
@@ -48,6 +50,11 @@ export function resolveAccessoryCategory(abilities: Ability[]): Categories {
     for (const a of active) {
         if (a instanceof StatelessProgrammableSwitchAbility) {
             return Categories.PROGRAMMABLE_SWITCH;
+        }
+    }
+    for (const a of active) {
+        if (a instanceof TemperatureSensorAbility || a instanceof HumiditySensorAbility) {
+            return Categories.SENSOR;
         }
     }
 

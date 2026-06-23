@@ -80,6 +80,13 @@ export interface LightOptions {
     exclude?: boolean;
 }
 
+export interface AddonSensorOptions {
+    /**
+     * Whether this add-on sensor should be excluded.
+     */
+    exclude?: boolean;
+}
+
 export interface DeviceOptions {
     /**
      * The name of the device.
@@ -121,6 +128,14 @@ export interface DeviceOptions {
      * Options for devices that have a cover.
      */
     ['cover:0']?: CoverOptions;
+    /**
+     * Options for Shelly Sensor Add-on temperature components.
+     */
+    [key: `temperature:${number}`]: AddonSensorOptions | undefined;
+    /**
+     * Options for Shelly Sensor Add-on humidity components.
+     */
+    [key: `humidity:${number}`]: AddonSensorOptions | undefined;
 }
 
 const DEFAULT_DEVICE_OPTIONS: Readonly<DeviceOptions> = {

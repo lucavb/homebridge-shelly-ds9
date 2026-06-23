@@ -10,3 +10,5 @@ export * from './service-label.ts';
 export * from './stateless-programmable-switch.ts';
 export * from './switch.ts';
 export * from './pm1.ts';
+export * from './temperature-sensor.ts';
+export * from './humidity-sensor.ts';

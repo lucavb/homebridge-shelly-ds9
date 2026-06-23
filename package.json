@@ -71,7 +71,7 @@
         "test:watch": "vitest"
     },
     "dependencies": {
-        "@lucavb/shellies-ds9": "1.6.0"
+        "@lucavb/shellies-ds9": "1.7.0"
     },
     "devDependencies": {
         "@commitlint/cli": "21.0.2",

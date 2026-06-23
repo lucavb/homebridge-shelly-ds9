@@ -1,18 +1,29 @@
-import { ComponentLike, Cover, Device, Switch, Light } from '@lucavb/shellies-ds9';
+import {
+    ADDON_SENSOR_MIN_ID,
+    ComponentLike,
+    Cover,
+    Device,
+    Humidity,
+    Light,
+    Switch,
+    Temperature,
+} from '@lucavb/shellies-ds9';
 import { PlatformAccessory } from 'homebridge';
 
 import {
     Ability,
     AccessoryInformationAbility,
     CoverAbility,
+    HumiditySensorAbility,
     OutletAbility,
     PowerMeterAbility,
     SwitchAbility,
     LightAbility,
+    TemperatureSensorAbility,
 } from '../abilities/index.ts';
 import { Accessory, AccessoryId } from '../accessory.ts';
 import { DeviceLogger } from '../utils/device-logger.ts';
-import { CoverOptions, DeviceOptions, SwitchOptions, LightOptions } from '../config.ts';
+import { AddonSensorOptions, CoverOptions, DeviceOptions, SwitchOptions, LightOptions } from '../config.ts';
 import { ShellyPlatform } from '../platform.ts';
 
 /**
@@ -138,6 +149,7 @@ export abstract class DeviceDelegate {
             .on('request', this.handleRequest, this);
 
         this.setup();
+        this.setupAddonSensors();
     }
 
     /**
@@ -145,6 +157,92 @@ export abstract class DeviceDelegate {
      * accessories.
      */
     protected abstract setup();
+
+    /**
+     * Creates HomeKit accessories for Shelly Sensor Add-on temperature and humidity components.
+     */
+    protected setupAddonSensors() {
+        const temperatures = new Map<number, Temperature>();
+        const humidities = new Map<number, Humidity>();
+
+        for (const [, component] of this.device) {
+            if (component instanceof Temperature && component.id >= ADDON_SENSOR_MIN_ID) {
+                temperatures.set(component.id, component);
+            } else if (component instanceof Humidity && component.id >= ADDON_SENSOR_MIN_ID) {
+                humidities.set(component.id, component);
+            }
+        }
+
+        const pairedHumidityIds = new Set<number>();
+
+        for (const [id, temperature] of temperatures) {
+            const temperatureOptions = this.getComponentOptions<AddonSensorOptions>(temperature) ?? {};
+            const humidity = humidities.get(id);
+
+            if (temperatureOptions.exclude === true) {
+                if (humidity) {
+                    pairedHumidityIds.add(id);
+                }
+                continue;
+            }
+            const abilities: Ability[] = [new TemperatureSensorAbility(temperature)];
+            let accessoryId = `addon-temperature-${id}`;
+            let nameSuffix = this.formatAddonSensorName(temperature, 'Temperature', id);
+
+            if (humidity) {
+                const humidityOptions = this.getComponentOptions<AddonSensorOptions>(humidity) ?? {};
+                if (humidityOptions.exclude !== true) {
+                    abilities.push(new HumiditySensorAbility(humidity));
+                    accessoryId = `addon-climate-${id}`;
+                    nameSuffix = this.formatAddonClimateName(temperature, humidity, id);
+                    pairedHumidityIds.add(id);
+                }
+            }
+
+            this.createAccessory(accessoryId, nameSuffix, ...abilities);
+        }
+
+        for (const [id, humidity] of humidities) {
+            if (pairedHumidityIds.has(id)) {
+                continue;
+            }
+
+            const humidityOptions = this.getComponentOptions<AddonSensorOptions>(humidity) ?? {};
+            if (humidityOptions.exclude === true) {
+                continue;
+            }
+
+            this.createAccessory(
+                `addon-humidity-${id}`,
+                this.formatAddonSensorName(humidity, 'Humidity', id),
+                new HumiditySensorAbility(humidity),
+            );
+        }
+    }
+
+    private formatAddonSensorName(component: Temperature | Humidity, fallbackLabel: string, id: number): string {
+        const name = component.config?.name;
+        if (typeof name === 'string' && name.length > 0) {
+            return name;
+        }
+
+        return `${fallbackLabel} ${id}`;
+    }
+
+    private formatAddonClimateName(temperature: Temperature, humidity: Humidity, id: number): string {
+        const temperatureName = temperature.config?.name;
+        const humidityName = humidity.config?.name;
+
+        if (typeof temperatureName === 'string' && temperatureName.length > 0) {
+            return temperatureName;
+        }
+
+        if (typeof humidityName === 'string' && humidityName.length > 0) {
+            return humidityName;
+        }
+
+        return `Climate ${id}`;
+    }
 
     /**
      * Retrieves configuration options for the given component from the device options.
