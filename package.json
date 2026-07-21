@@ -84,7 +84,7 @@
         "@semantic-release/release-notes-generator": "^14.0.0",
         "@types/node": "24.13.3",
         "eslint": "10.7.0",
-        "homebridge": "2.2.0",
+        "homebridge": "2.2.1",
         "jiti": "2.7.0",
         "prettier": "3.9.5",
         "rimraf": "6.1.3",
