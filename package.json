@@ -83,7 +83,7 @@
         "@semantic-release/npm": "^13.0.0",
         "@semantic-release/release-notes-generator": "^14.0.0",
         "@types/node": "24.13.3",
-        "eslint": "10.8.0",
+        "eslint": "10.8.1",
         "homebridge": "2.2.1",
         "jiti": "2.7.0",
         "prettier": "3.9.6",
