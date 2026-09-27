@@ -1,4 +1,5 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
+import { join } from 'path';
 
 import {
     Device,
@@ -35,8 +36,7 @@ export const PLATFORM_NAME = 'ShellyDS9';
  */
 export function resolveStoragePath(api: API): string | undefined {
     try {
-        const localStorage = api.hap.HAPStorage.storage();
-        const dir = localStorage.options?.dir;
+        const dir = api.user.persistPath();
         if (typeof dir === 'string' && dir.length > 0) {
             return dir;
         }
@@ -45,7 +45,11 @@ export function resolveStoragePath(api: API): string | undefined {
     }
 
     try {
-        return api.user.storagePath() || undefined;
+        const dir = api.user.storagePath();
+        if (typeof dir === 'string' && dir.length > 0) {
+            return join(dir, 'persist');
+        }
+        return undefined;
     } catch {
         return undefined;
     }

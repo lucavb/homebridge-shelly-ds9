@@ -171,13 +171,11 @@ function createMockPlatform(cachedAccessory: MockPlatformAccessory | null = null
                 Service,
                 HAPStatus,
                 HapStatusError,
-                HAPStorage: {
-                    storage: () => ({ options: { dir: STORAGE_PATH } }),
-                },
             },
             platformAccessory: MockPlatformAccessory,
             user: {
                 storagePath: () => '/tmp/user-storage',
+                persistPath: () => STORAGE_PATH,
             },
         },
         getAccessory: vi.fn().mockReturnValue(cachedAccessory),
