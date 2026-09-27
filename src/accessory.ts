@@ -1,5 +1,6 @@
 import { DeviceId } from '@lucavb/shellies-ds9';
-import { Categories, PlatformAccessory } from 'homebridge';
+import { Categories } from 'homebridge';
+import type { CharacteristicChange, PlatformAccessory } from 'homebridge';
 
 import {
     Ability,
@@ -12,8 +13,10 @@ import {
     SwitchAbility,
     TemperatureSensorAbility,
 } from './abilities/index.ts';
+import { WEATHER_HISTORY_SERVICE_UUID, makeHistoryService, removeFromFakegatoRegistries } from './history.ts';
+import type { FakeGatoHistoryService, HistoryOptions } from './history.ts';
 import { DeviceLogger } from './utils/device-logger.ts';
-import { ShellyPlatform } from './platform.ts';
+import { ShellyPlatform, resolveStoragePath } from './platform.ts';
 
 export type AccessoryId = string;
 export type AccessoryUuid = string;
@@ -110,11 +113,23 @@ export class Accessory {
     protected updateTimeout: ReturnType<typeof setTimeout> | null = null;
 
     /**
+     * Handles used to complete the fakegato history teardown, including the
+     * characteristic change listeners that feed the history service, or `null`
+     * if no history is currently recorded.
+     */
+    private historyState: {
+        detach: () => void;
+        api: ShellyPlatform['api'];
+        historyService: FakeGatoHistoryService;
+    } | null = null;
+
+    /**
      * @param id - The accessory ID.
      * @param deviceId - The associated device ID.
      * @param name - A user-friendly name of the accessory.
      * @param platform - A reference to the homebridge platform.
      * @param log - The logger to use.
+     * @param history - Options for recording fakegato history data.
      * @param abilities - The abilities that this accessory has.
      */
     constructor(
@@ -123,6 +138,7 @@ export class Accessory {
         readonly name: string,
         readonly platform: ShellyPlatform,
         readonly log: DeviceLogger,
+        readonly history?: HistoryOptions,
         ...abilities: Ability[]
     ) {
         this.uuid = platform.api.hap.uuid.generate(`${deviceId}-${id}`);
@@ -194,14 +210,180 @@ export class Accessory {
             }
         }
 
+        // setup the fakegato history service (if applicable)
+        try {
+            this.setupHistory();
+        } catch (e) {
+            this.log.error('Failed to setup history:', e instanceof Error ? e.message : e);
+            this.log.debug('Accessory ID:', this.id);
+            if (e instanceof Error && e.stack) {
+                this.log.debug(e.stack);
+            }
+        }
+
         // register the platform accessory
         this.platform.addAccessory(this._platformAccessory);
+    }
+
+    /**
+     * Sets up the fakegato history service for this accessory, if it exposes
+     * temperature and/or humidity sensor abilities and history is enabled for
+     * them.
+     * At most one weather history service is created per accessory, and its
+     * characteristic change events are fed to it as history entries.
+     */
+    private setupHistory() {
+        const pa = this._platformAccessory;
+        if (pa === null) {
+            return;
+        }
+
+        const temperatureAbility = this.abilities.find(
+            (a): a is TemperatureSensorAbility => a instanceof TemperatureSensorAbility,
+        );
+        const humidityAbility = this.abilities.find(
+            (a): a is HumiditySensorAbility => a instanceof HumiditySensorAbility,
+        );
+
+        // a missing flag means that history is enabled
+        const recordTemperature = temperatureAbility !== undefined && (this.history?.temp ?? true);
+        const recordHumidity = humidityAbility !== undefined && (this.history?.humidity ?? true);
+
+        if (!recordTemperature && !recordHumidity) {
+            // the accessory may have been loaded from cache with a history
+            // service created while history was still enabled, so remove it
+            // (mirrors the cached-service cleanup in `Ability.removeService()`)
+            const frozenService = pa.services.find((s) => s.UUID === WEATHER_HISTORY_SERVICE_UUID);
+            if (frozenService !== undefined) {
+                try {
+                    pa.removeService(frozenService);
+                } catch (e) {
+                    this.log.debug(
+                        'Failed to remove the disabled history service:',
+                        e instanceof Error ? e.message : e,
+                    );
+                }
+            }
+            return;
+        }
+
+        const api = this.platform.api;
+
+        const storagePath = resolveStoragePath(api);
+        if (storagePath === undefined) {
+            this.log.debug('Skipping history support: could not determine the storage path');
+            return;
+        }
+
+        const historyService = makeHistoryService(api, 'weather', pa, {
+            log: this.log,
+            storage: 'fs',
+            path: storagePath,
+            filename: `${this.uuid}.json`,
+        });
+
+        if (historyService === null) {
+            return;
+        }
+
+        // the fakegato history service registers itself on the platform
+        // accessory during construction (fresh and cached accessories alike),
+        // so the history data is immediately available to the Eve and Home+ apps
+
+        const cleanups: (() => void)[] = [];
+
+        if (recordTemperature) {
+            const service = pa.getService(api.hap.Service.TemperatureSensor);
+            const characteristic = service?.getCharacteristic(api.hap.Characteristic.CurrentTemperature);
+
+            if (characteristic !== undefined) {
+                const addEntry = (value: number) => {
+                    historyService.addEntry({ time: Math.floor(Date.now() / 1000), temp: value });
+                };
+
+                // push an initial entry if the characteristic already holds a value
+                const initialValue = characteristic.value;
+                if (typeof initialValue === 'number' && Number.isFinite(initialValue)) {
+                    addEntry(initialValue);
+                }
+
+                const listener = (change: CharacteristicChange) => {
+                    const value = change.newValue;
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        addEntry(value);
+                    }
+                };
+
+                characteristic.on('change', listener);
+                cleanups.push(() => characteristic.removeListener('change', listener));
+            }
+        }
+
+        if (recordHumidity) {
+            const service = pa.getService(api.hap.Service.HumiditySensor);
+            const characteristic = service?.getCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity);
+
+            if (characteristic !== undefined) {
+                const addEntry = (value: number) => {
+                    historyService.addEntry({ time: Math.floor(Date.now() / 1000), humidity: value });
+                };
+
+                const initialValue = characteristic.value;
+                if (typeof initialValue === 'number' && Number.isFinite(initialValue)) {
+                    addEntry(initialValue);
+                }
+
+                const listener = (change: CharacteristicChange) => {
+                    const value = change.newValue;
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        addEntry(value);
+                    }
+                };
+
+                characteristic.on('change', listener);
+                cleanups.push(() => characteristic.removeListener('change', listener));
+            }
+        }
+
+        this.historyState = {
+            detach: () => {
+                for (const cleanup of cleanups) {
+                    try {
+                        cleanup();
+                    } catch {
+                        // ignore errors from listener removal
+                    }
+                }
+            },
+            api,
+            historyService,
+        };
+    }
+
+    /**
+     * Completes the fakegato history teardown, by removing the characteristic
+     * change listeners that feed the history service and by removing the
+     * service from the global fakegato timer and storage registries.
+     * Note that no persisted history data is removed; a sensor that is disabled
+     * or removed will leave a stale (harmless) history file behind.
+     */
+    private detachHistory() {
+        if (this.historyState !== null) {
+            const state = this.historyState;
+            this.historyState = null;
+
+            state.detach();
+            removeFromFakegatoRegistries(state.api, state.historyService);
+        }
     }
 
     /**
      * Deactivates this accessory, by destroying all abilities and the platform accessory.
      */
     protected deactivate() {
+        // stop recording history data
+        this.detachHistory();
+
         // destroy all abilities
         for (const a of this.abilities) {
             try {
@@ -248,6 +430,9 @@ export class Accessory {
             clearTimeout(this.updateTimeout);
             this.updateTimeout = null;
         }
+
+        // stop recording history data
+        this.detachHistory();
 
         // invoke detach() on all abilities
         for (const a of this.abilities) {

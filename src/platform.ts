@@ -28,6 +28,30 @@ export const PLUGIN_NAME = '@lucavb/homebridge-shelly-ds9';
 export const PLATFORM_NAME = 'ShellyDS9';
 
 /**
+ * Resolves the file system path that is used for persistent data, such as the
+ * device cache and fakegato history files.
+ * Never throws; returns `undefined` if no path could be determined.
+ * @param api - A reference to the homebridge API.
+ */
+export function resolveStoragePath(api: API): string | undefined {
+    try {
+        const localStorage = api.hap.HAPStorage.storage();
+        const dir = localStorage.options?.dir;
+        if (typeof dir === 'string' && dir.length > 0) {
+            return dir;
+        }
+    } catch {
+        // fall through to the user storage path
+    }
+
+    try {
+        return api.user.storagePath() || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
  * Utility class that "discovers" devices from the configuration options.
  */
 export class ConfigDeviceDiscoverer extends DeviceDiscoverer {
@@ -185,9 +209,7 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
             .on('unknown', this.handleUnknownDevice, this)
             .on('error', this.handleError, this);
 
-        const localStorage = api.hap.HAPStorage.storage();
-        const storagePath =
-            typeof localStorage.options?.dir === 'string' ? localStorage.options.dir : api.user.storagePath() || '.';
+        const storagePath = resolveStoragePath(api) ?? '.';
         this.deviceCache = new DeviceCache(storagePath, log);
 
         // wait for homebridge to finish launching

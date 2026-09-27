@@ -199,6 +199,12 @@
                                     "title": "Exclude this temperature sensor",
                                     "type": "boolean",
                                     "default": false
+                                },
+                                "history": {
+                                    "title": "Record history",
+                                    "description": "Whether readings from this temperature sensor should be recorded, so that history charts are available in the Eve and Home+ apps.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -210,6 +216,12 @@
                                     "title": "Exclude this temperature sensor",
                                     "type": "boolean",
                                     "default": false
+                                },
+                                "history": {
+                                    "title": "Record history",
+                                    "description": "Whether readings from this temperature sensor should be recorded, so that history charts are available in the Eve and Home+ apps.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -221,6 +233,12 @@
                                     "title": "Exclude this temperature sensor",
                                     "type": "boolean",
                                     "default": false
+                                },
+                                "history": {
+                                    "title": "Record history",
+                                    "description": "Whether readings from this temperature sensor should be recorded, so that history charts are available in the Eve and Home+ apps.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -232,6 +250,12 @@
                                     "title": "Exclude this temperature sensor",
                                     "type": "boolean",
                                     "default": false
+                                },
+                                "history": {
+                                    "title": "Record history",
+                                    "description": "Whether readings from this temperature sensor should be recorded, so that history charts are available in the Eve and Home+ apps.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -243,6 +267,12 @@
                                     "title": "Exclude this temperature sensor",
                                     "type": "boolean",
                                     "default": false
+                                },
+                                "history": {
+                                    "title": "Record history",
+                                    "description": "Whether readings from this temperature sensor should be recorded, so that history charts are available in the Eve and Home+ apps.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         },
@@ -254,6 +284,12 @@
                                     "title": "Exclude this humidity sensor",
                                     "type": "boolean",
                                     "default": false
+                                },
+                                "history": {
+                                    "title": "Record history",
+                                    "description": "Whether readings from this humidity sensor should be recorded, so that history charts are available in the Eve and Home+ apps.",
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             }
                         }
@@ -330,42 +366,42 @@
                     "condition": {
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
                     },
-                    "items": ["devices[].temperature:100.exclude"]
+                    "items": ["devices[].temperature:100.exclude", "devices[].temperature:100.history"]
                 },
                 {
                     "key": "devices[].temperature:101",
                     "condition": {
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
                     },
-                    "items": ["devices[].temperature:101.exclude"]
+                    "items": ["devices[].temperature:101.exclude", "devices[].temperature:101.history"]
                 },
                 {
                     "key": "devices[].temperature:102",
                     "condition": {
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
                     },
-                    "items": ["devices[].temperature:102.exclude"]
+                    "items": ["devices[].temperature:102.exclude", "devices[].temperature:102.history"]
                 },
                 {
                     "key": "devices[].temperature:103",
                     "condition": {
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
                     },
-                    "items": ["devices[].temperature:103.exclude"]
+                    "items": ["devices[].temperature:103.exclude", "devices[].temperature:103.history"]
                 },
                 {
                     "key": "devices[].temperature:104",
                     "condition": {
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
                     },
-                    "items": ["devices[].temperature:104.exclude"]
+                    "items": ["devices[].temperature:104.exclude", "devices[].temperature:104.history"]
                 },
                 {
                     "key": "devices[].humidity:100",
                     "condition": {
                         "functionBody": "return model.devices && !model.devices[arrayIndices[0]].exclude && model.devices[arrayIndices[0]].id && model.devices[arrayIndices[0]].id.match(/^\\s*(?:shellyplus1|shellyplus1pm|shellyplus2pm|shellyplusplug|shellyplusplugus|shellypro1|shellypro1pm|shellypro2|shellypro2pm|shellypro3|shellypro4pm)-/i) !== null"
                     },
-                    "items": ["devices[].humidity:100.exclude"]
+                    "items": ["devices[].humidity:100.exclude", "devices[].humidity:100.history"]
                 }
             ]
         },

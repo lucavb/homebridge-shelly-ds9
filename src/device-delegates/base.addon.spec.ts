@@ -6,6 +6,7 @@ import { Humidity, RpcHandler, ShellyPlus1Pm, Temperature } from '@lucavb/shelli
 import { HumiditySensorAbility, TemperatureSensorAbility } from '../abilities/index.ts';
 import { resolveAccessoryCategory } from '../accessory.ts';
 import { DeviceOptions } from '../config.ts';
+import type { HistoryOptions } from '../history.ts';
 import { ShellyPlus1Delegate } from './shelly-plus-1.ts';
 import { DeviceDelegate } from './base.ts';
 import { ShellyPlatform } from '../platform.ts';
@@ -179,6 +180,44 @@ describe('Shelly Sensor Add-on support', () => {
         expect(climateAccessory?.abilities.some((ability) => ability instanceof TemperatureSensorAbility)).toBe(true);
         expect(climateAccessory?.abilities.some((ability) => ability instanceof HumiditySensorAbility)).toBe(true);
         expect(climateAccessory?.name).toContain('Tank');
+    });
+
+    it('translates disabled history options into the accessory history flags', async () => {
+        const device = createAddonDevice();
+        await device.discoverAddonComponents();
+
+        const options: DeviceOptions = {
+            exclude: false,
+            protocol: 'websocket',
+            'temperature:100': { history: false },
+            'humidity:100': { history: false },
+        };
+
+        delegate = new ShellyPlus1Delegate(device, options, createMockPlatform());
+        await vi.runAllTimersAsync();
+
+        const climateAccessory = (
+            delegate as ShellyPlus1Delegate & { accessories: Map<string, { history: HistoryOptions }> }
+        ).accessories.get('addon-climate-100');
+        expect(climateAccessory?.history).toEqual({ temp: false, humidity: false });
+    });
+
+    it('enables history by default for add-on sensors', async () => {
+        const device = createAddonDevice();
+        await device.discoverAddonComponents();
+
+        const options: DeviceOptions = {
+            exclude: false,
+            protocol: 'websocket',
+        };
+
+        delegate = new ShellyPlus1Delegate(device, options, createMockPlatform());
+        await vi.runAllTimersAsync();
+
+        const climateAccessory = (
+            delegate as ShellyPlus1Delegate & { accessories: Map<string, { history: HistoryOptions }> }
+        ).accessories.get('addon-climate-100');
+        expect(climateAccessory?.history).toEqual({ temp: true, humidity: true });
     });
 
     it('does not create add-on accessories when temperature components are excluded', async () => {

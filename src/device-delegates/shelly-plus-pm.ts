@@ -11,7 +11,7 @@ export class ShellyPlusPmDelegate extends DeviceDelegate {
     protected setup() {
         const d = this.device as ShellyPlusPmMini;
 
-        this.createAccessory('switch', this.device.id, new Pm1Ability(d.pm1));
+        this.createAccessory('switch', this.device.id, undefined, new Pm1Ability(d.pm1));
     }
 }
 

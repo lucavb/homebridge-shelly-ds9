@@ -85,6 +85,12 @@ export interface AddonSensorOptions {
      * Whether this add-on sensor should be excluded.
      */
     exclude?: boolean;
+    /**
+     * Whether readings from this add-on sensor should be recorded for the
+     * fakegato history service, which exposes history charts to the Eve and
+     * Home+ apps. Defaults to `true` if not specified.
+     */
+    history?: boolean;
 }
 
 export interface DeviceOptions {

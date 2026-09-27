@@ -24,6 +24,7 @@ import {
 import { Accessory, AccessoryId } from '../accessory.ts';
 import { DeviceLogger } from '../utils/device-logger.ts';
 import { AddonSensorOptions, CoverOptions, DeviceOptions, SwitchOptions, LightOptions } from '../config.ts';
+import type { HistoryOptions } from '../history.ts';
 import { ShellyPlatform } from '../platform.ts';
 
 /**
@@ -188,6 +189,7 @@ export abstract class DeviceDelegate {
             const abilities: Ability[] = [new TemperatureSensorAbility(temperature)];
             let accessoryId = `addon-temperature-${id}`;
             let nameSuffix = this.formatAddonSensorName(temperature, 'Temperature', id);
+            const history: HistoryOptions = { temp: temperatureOptions.history !== false };
 
             if (humidity) {
                 const humidityOptions = this.getComponentOptions<AddonSensorOptions>(humidity) ?? {};
@@ -195,11 +197,12 @@ export abstract class DeviceDelegate {
                     abilities.push(new HumiditySensorAbility(humidity));
                     accessoryId = `addon-climate-${id}`;
                     nameSuffix = this.formatAddonClimateName(temperature, humidity, id);
+                    history.humidity = humidityOptions.history !== false;
                     pairedHumidityIds.add(id);
                 }
             }
 
-            this.createAccessory(accessoryId, nameSuffix, ...abilities);
+            this.createAccessory(accessoryId, nameSuffix, history, ...abilities);
         }
 
         for (const [id, humidity] of humidities) {
@@ -215,6 +218,7 @@ export abstract class DeviceDelegate {
             this.createAccessory(
                 `addon-humidity-${id}`,
                 this.formatAddonSensorName(humidity, 'Humidity', id),
+                { humidity: humidityOptions.history !== false },
                 new HumiditySensorAbility(humidity),
             );
         }
@@ -258,9 +262,15 @@ export abstract class DeviceDelegate {
      * If a matching platform accessory is not found in cache, a new one will be created.
      * @param id - A unique identifier for this accessory.
      * @param nameSuffix - A string to append to the name of this accessory.
+     * @param history - Options for recording fakegato history data, or `undefined` if history should be enabled (the default) for any sensor abilities on the accessory.
      * @param abilities - The abilities to add to this accessory.
      */
-    protected createAccessory(id: AccessoryId, nameSuffix: string | null, ...abilities: Ability[]): Accessory {
+    protected createAccessory(
+        id: AccessoryId,
+        nameSuffix: string | null,
+        history: HistoryOptions | undefined,
+        ...abilities: Ability[]
+    ): Accessory {
         // make sure the given ID is unique
         if (this.accessories.has(id)) {
             throw new Error(`An accessory with ID '${id}' already exists`);
@@ -278,6 +288,7 @@ export abstract class DeviceDelegate {
             name,
             this.platform,
             this.log,
+            history,
             new AccessoryInformationAbility(this.device),
             ...abilities,
         );
@@ -309,6 +320,7 @@ export abstract class DeviceDelegate {
         return this.createAccessory(
             id,
             nameSuffix,
+            undefined,
             new OutletAbility(swtch).setActive(isOutlet),
             new SwitchAbility(swtch).setActive(!isOutlet),
             // use the apower property to determine whether power metering is available
@@ -337,6 +349,7 @@ export abstract class DeviceDelegate {
         return this.createAccessory(
             id,
             'Cover',
+            undefined,
             new CoverAbility(cover, 'door').setActive(isDoor),
             new CoverAbility(cover, 'windowCovering').setActive(isWindowCovering),
             new CoverAbility(cover, 'window').setActive(!isDoor && !isWindowCovering),
@@ -358,7 +371,7 @@ export abstract class DeviceDelegate {
         const id = o.single === true ? 'light' : `light-${light.id}`;
         const nameSuffix = o.single === true ? null : `Light ${light.id + 1}`;
 
-        return this.createAccessory(id, nameSuffix, new LightAbility(light)).setActive(
+        return this.createAccessory(id, nameSuffix, undefined, new LightAbility(light)).setActive(
             lightOpts.exclude !== true && o.active !== false,
         );
     }

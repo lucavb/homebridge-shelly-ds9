@@ -20,6 +20,7 @@ export class ShellyPlusI4Delegate extends DeviceDelegate {
         this.createAccessory(
             'buttons',
             null,
+            undefined,
             new StatelessProgrammableSwitchAbility(d.input0).setActive(input0IsButton),
             new StatelessProgrammableSwitchAbility(d.input1).setActive(input1IsButton),
             new StatelessProgrammableSwitchAbility(d.input2).setActive(input2IsButton),
@@ -28,10 +29,18 @@ export class ShellyPlusI4Delegate extends DeviceDelegate {
         ).setActive(input0IsButton || input1IsButton || input2IsButton || input3IsButton);
 
         // create accessories for all switch inputs
-        this.createAccessory('switch0', null, new ReadonlySwitchAbility(d.input0)).setActive(!input0IsButton);
-        this.createAccessory('switch1', null, new ReadonlySwitchAbility(d.input1)).setActive(!input1IsButton);
-        this.createAccessory('switch2', null, new ReadonlySwitchAbility(d.input2)).setActive(!input2IsButton);
-        this.createAccessory('switch3', null, new ReadonlySwitchAbility(d.input3)).setActive(!input3IsButton);
+        this.createAccessory('switch0', null, undefined, new ReadonlySwitchAbility(d.input0)).setActive(
+            !input0IsButton,
+        );
+        this.createAccessory('switch1', null, undefined, new ReadonlySwitchAbility(d.input1)).setActive(
+            !input1IsButton,
+        );
+        this.createAccessory('switch2', null, undefined, new ReadonlySwitchAbility(d.input2)).setActive(
+            !input2IsButton,
+        );
+        this.createAccessory('switch3', null, undefined, new ReadonlySwitchAbility(d.input3)).setActive(
+            !input3IsButton,
+        );
     }
 }
 

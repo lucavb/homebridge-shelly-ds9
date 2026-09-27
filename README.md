@@ -93,6 +93,23 @@ DS18B20 and DHT22 cannot be used on the same 1-Wire bus. Add-on digital/analog i
 
 Per-sensor exclusion is available via `temperature:100.exclude` and `humidity:100.exclude` in the device config (component IDs 100–199).
 
+### History
+
+Temperature and humidity readings from the add-on sensors are recorded and exposed
+to HomeKit as history data, so that the [Eve](https://www.evehome.com/en/app) and
+[Home+](https://www.hobbyistsoftware.com/homeplus) apps can display temperature
+and humidity charts for each sensor accessory.
+
+Readings are aggregated into one history entry per key (temperature and humidity
+are recorded independently) roughly every 10 minutes. The history data is stored
+in the `persist` directory of the Homebridge storage path as JSON files named
+after the accessory UUID. If a sensor is disabled or removed, its history file is
+left behind; it is harmless, but it can be deleted manually.
+
+If you don't want history data for a particular sensor, set the `history` option
+to `false`, e.g. `temperature:100.history` or `humidity:100.history`. History
+recording is enabled by default.
+
 ## Configuration
 
 The following configuration options are available. Note that they are all optional.
@@ -127,10 +144,12 @@ The following configuration options are available. Note that they are all option
         "type": "windowCovering"
       },
       "temperature:100": {
-        "exclude": false
+        "exclude": false,
+        "history": true
       },
       "humidity:100": {
-        "exclude": false
+        "exclude": false,
+        "history": true
       }
     }
   ],
@@ -162,6 +181,7 @@ See below for descriptions of each configuration option.
 | `devices. cover:0.type`            | Only available for devices in cover mode. The type of accessory used to represent the cover. Available options are `"door"`, `"window"` (default) and `"windowCovering"`.                                                                                                                                                                                                                                                                                                          |
 | `devices. light:0.exclude`         | Set this option to `true` to prevent this light from being added to HomeKit.                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `devices. temperature:100.exclude` | Set this option to `true` to prevent an add-on DS18B20 temperature sensor (component ID 100) from being added to HomeKit. Same pattern applies for `temperature:101`–`199`.                                                                                                                                                                                                                                                                                                        |
+| `devices. temperature:100.history` | Set this option to `false` to disable recording of history data for an add-on DS18B20 temperature sensor (component ID 100). History is enabled by default. Same pattern applies for `temperature:101`–`199` and `humidity:100`–`199`.                                                                                                                                                                                                                                             |
 | `devices. humidity:100.exclude`    | Set this option to `true` to prevent an add-on DHT22 humidity sensor (component ID 100) from being added to HomeKit. Same pattern applies for `humidity:101`–`199`.                                                                                                                                                                                                                                                                                                                |
 | `mdns`                             | Settings for the mDNS device discovery service.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `mdns. enable`                     | Set this option to `false` to disable automatic device discovery using mDNS.                                                                                                                                                                                                                                                                                                                                                                                                       |
