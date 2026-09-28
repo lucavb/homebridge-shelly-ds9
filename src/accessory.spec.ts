@@ -89,4 +89,55 @@ describe('resolveAccessoryCategory()', () => {
 
         expect(resolveAccessoryCategory(abilities)).toBe(Categories.SENSOR);
     });
+
+    it('pins the tier order: OUTLET wins over SWITCH', () => {
+        const abilities = [
+            new SwitchAbility(mockSwitch).setActive(true),
+            new OutletAbility(mockSwitch).setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.OUTLET);
+    });
+
+    it('pins the tier order: SWITCH wins over LIGHTBULB', () => {
+        const abilities = [new LightAbility(mockLight).setActive(true), new SwitchAbility(mockSwitch).setActive(true)];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.SWITCH);
+    });
+
+    it('pins the tier order: LIGHTBULB wins over the cover categories', () => {
+        const abilities = [
+            new CoverAbility(mockCover, 'window').setActive(true),
+            new LightAbility(mockLight).setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.LIGHTBULB);
+    });
+
+    it('pins the tier order: the cover categories win over PROGRAMMABLE_SWITCH', () => {
+        const abilities = [
+            new StatelessProgrammableSwitchAbility(mockInput).setActive(true),
+            new CoverAbility(mockCover, 'windowCovering').setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.WINDOW_COVERING);
+    });
+
+    it('pins the tier order: PROGRAMMABLE_SWITCH wins over SENSOR', () => {
+        const abilities = [
+            new TemperatureSensorAbility(mockTemperature).setActive(true),
+            new StatelessProgrammableSwitchAbility(mockInput).setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.PROGRAMMABLE_SWITCH);
+    });
+
+    it('pins the tier order: an inactive ability in a higher tier does not shadow a lower tier', () => {
+        const abilities = [
+            new OutletAbility(mockSwitch).setActive(false),
+            new TemperatureSensorAbility(mockTemperature).setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.SENSOR);
+    });
 });

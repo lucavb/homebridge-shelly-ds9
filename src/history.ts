@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 
 import type { API, LogLevel, PlatformAccessory } from 'homebridge';
 
+import { resolveStoragePath } from './utils/storage-path.ts';
 import type { DeviceLogger } from './utils/device-logger.ts';
 
 /**
@@ -87,7 +88,7 @@ export type FakegatoFactory = (api: API) => FakeGatoHistoryServiceClass;
  * Note that upstream accepts more types; only the ones this plugin uses are
  * listed here.
  */
-export type FakegatoHistoryType = 'weather';
+type FakegatoHistoryType = 'weather';
 
 /**
  * A loader that returns the fakegato-history factory.
@@ -120,25 +121,9 @@ export interface FakegatoStorageLike {
 }
 
 /**
- * Describes how history data should be recorded for an accessory.
- * A missing flag means that the corresponding kind of readings should be
- * recorded.
- */
-export interface HistoryOptions {
-    /**
-     * Whether temperature readings should be recorded.
-     */
-    temp?: boolean;
-    /**
-     * Whether humidity readings should be recorded.
-     */
-    humidity?: boolean;
-}
-
-/**
  * The options for `makeHistoryService()`.
  */
-export interface HistoryServiceOptions {
+interface HistoryServiceOptions {
     log: DeviceLogger;
     storage: 'fs';
     path: string;
@@ -239,7 +224,7 @@ function createFakegatoLog(log: DeviceLogger): FakegatoLog {
  * @param accessory - The platform accessory to create the history service for.
  * @param options - The options for the history service.
  */
-export function makeHistoryService(
+function makeHistoryService(
     api: API,
     type: FakegatoHistoryType,
     accessory: PlatformAccessory,
@@ -275,7 +260,7 @@ export function makeHistoryService(
  * @param api - A reference to the homebridge API.
  * @param service - The history service to remove from the registries.
  */
-export function removeFromFakegatoRegistries(api: API, service: FakeGatoHistoryService) {
+function removeFromFakegatoRegistries(api: API, service: FakeGatoHistoryService) {
     // the fakegato globals are added to the API by the module itself and are
     // therefore not part of the homebridge typings
     const fakegatoGlobals = api as unknown as {
@@ -302,4 +287,152 @@ export function removeFromFakegatoRegistries(api: API, service: FakeGatoHistoryS
     } catch {
         // keep the plugin functional if the storage's shape differs
     }
+}
+
+/**
+ * The kinds of sensor readings that a `WeatherHistoryRecorder` can record.
+ * A temperature and a humidity component sharing one component ID are recorded
+ * independently, as one history entry per kind.
+ */
+export type HistoryKind = 'temperature' | 'humidity';
+
+/**
+ * The single owner of a platform accessory's weather history: sensor readings
+ * go in, history entries come out.
+ * Aggregation is fakegato-internal: every entry lands in the global timer's
+ * per-service backlog, and a process-global 10-minute tick averages each key
+ * independently and writes one combined entry. The recorder does no throttling
+ * and owns no timer.
+ * A recorder that could not be set up (e.g. because history is not needed or
+ * fakegato is unavailable) is inert: all of its operations are no-ops, and
+ * the stale service cleanup has already run (see `createRecorder()`).
+ */
+export class WeatherHistoryRecorder {
+    private readonly api: API;
+    private readonly service: FakeGatoHistoryService | null;
+    private detached = false;
+
+    /**
+     * @param api - A reference to the homebridge API, retained from creation
+     *   time so that `detach()` can reach the fakegato global registries.
+     * @param service - The fakegato history service, or `null` for an inert
+     *   recorder (`record()` and `detach()` are no-ops).
+     */
+    constructor(api: API, service: FakeGatoHistoryService | null) {
+        this.api = api;
+        this.service = service;
+    }
+
+    /**
+     * Records a sensor reading as a per-key history entry:
+     * `temp` for temperature readings, `humidity` for humidity readings.
+     * The recorder supplies the entry's timestamp; fakegato queues entries
+     * that arrive before the persisted history has finished loading.
+     * No-ops on inert or detached recorders.
+     * @param kind - The kind of the reading.
+     * @param value - The reading in degrees Celsius (temperature) or percent
+     *   relative humidity.
+     */
+    record(kind: HistoryKind, value: number): void {
+        if (this.service === null || this.detached) {
+            return;
+        }
+
+        // fakegato expects UNIX timestamps in seconds
+        const time = Math.floor(Date.now() / 1000);
+
+        const entry: FakeGatoHistoryEntry = kind === 'temperature' ? { time, temp: value } : { time, humidity: value };
+
+        this.service.addEntry(entry);
+    }
+
+    /**
+     * Unregisters the history service from the global fakegato timer and
+     * storage registries. Idempotent: a second call is a no-op.
+     * No persisted history data is removed.
+     */
+    detach(): void {
+        if (this.service === null || this.detached) {
+            return;
+        }
+
+        this.detached = true;
+
+        removeFromFakegatoRegistries(this.api, this.service);
+    }
+}
+
+/**
+ * Removes every weather history service on the given platform accessory, i.e.
+ * every service whose UUID equals `WEATHER_HISTORY_SERVICE_UUID`.
+ * This mirrors the cached-service cleanup in `Ability.removeService()` and is
+ * needed when a recorder is not set up for an accessory that was restored from
+ * cache with a history service created while history was still enabled.
+ * @param pa - The platform accessory to clean up.
+ * @param log - The logger to use.
+ */
+function removeStaleWeatherServices(pa: PlatformAccessory, log: DeviceLogger): void {
+    // iterate over a copy, because `removeService()` mutates the services array
+    const staleServices = pa.services.filter((s) => s.UUID === WEATHER_HISTORY_SERVICE_UUID);
+
+    for (const staleService of staleServices) {
+        try {
+            pa.removeService(staleService);
+        } catch (e) {
+            log.debug('Failed to remove the stale history service:', e instanceof Error ? e.message : e);
+        }
+    }
+}
+
+/**
+ * Creates the weather history recorder for a platform accessory.
+ * The fakegato history service is constructed eagerly, never lazily: for a
+ * restored accessory whose sensor never reports again, the fakegato
+ * constructor is what rebinds the cached weather service and reloads the
+ * persisted ring buffer.
+ * If no kinds should be recorded, if the storage path cannot be resolved, or
+ * if fakegato-history is unavailable, no service is constructed; instead the
+ * accessory's stale weather history service (if any) is removed and an inert
+ * recorder is returned, whose `record()` and `detach()` are no-ops.
+ * @param pa - The platform accessory the history service is attached to.
+ * @param api - A reference to the homebridge API.
+ * @param uuid - The accessory's UUID, used as the history file name.
+ * @param log - The logger to use.
+ * @param kinds - The kinds of readings that should be recorded.
+ */
+export function createRecorder(
+    pa: PlatformAccessory,
+    api: API,
+    uuid: string,
+    log: DeviceLogger,
+    kinds: readonly HistoryKind[],
+): WeatherHistoryRecorder {
+    if (kinds.length === 0) {
+        removeStaleWeatherServices(pa, log);
+        return new WeatherHistoryRecorder(api, null);
+    }
+
+    const storagePath = resolveStoragePath(api);
+    if (storagePath === undefined) {
+        log.warn(`Could not set up history for accessory ${uuid}: could not determine the storage path.`);
+        removeStaleWeatherServices(pa, log);
+        return new WeatherHistoryRecorder(api, null);
+    }
+
+    // `makeHistoryService()` uses the per-API factory cache and the lazy
+    // `createRequire` load, and logs (at most once per API) itself if the
+    // module cannot be loaded or the service cannot be constructed
+    const historyService = makeHistoryService(api, 'weather', pa, {
+        log,
+        storage: 'fs',
+        path: storagePath,
+        filename: `${uuid}.json`,
+    });
+
+    if (historyService === null) {
+        removeStaleWeatherServices(pa, log);
+        return new WeatherHistoryRecorder(api, null);
+    }
+
+    return new WeatherHistoryRecorder(api, historyService);
 }

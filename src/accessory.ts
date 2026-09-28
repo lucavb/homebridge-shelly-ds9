@@ -1,63 +1,49 @@
 import { DeviceId } from '@lucavb/shellies-ds9';
 import { Categories } from 'homebridge';
-import type { CharacteristicChange, PlatformAccessory } from 'homebridge';
+import type { PlatformAccessory } from 'homebridge';
 
-import {
-    Ability,
-    CoverAbility,
-    HumiditySensorAbility,
-    LightAbility,
-    OutletAbility,
-    ReadonlySwitchAbility,
-    StatelessProgrammableSwitchAbility,
-    SwitchAbility,
-    TemperatureSensorAbility,
-} from './abilities/index.ts';
-import { WEATHER_HISTORY_SERVICE_UUID, makeHistoryService, removeFromFakegatoRegistries } from './history.ts';
-import type { FakeGatoHistoryService, HistoryOptions } from './history.ts';
+import { Ability } from './abilities/index.ts';
+import { createRecorder } from './history.ts';
+import type { HistoryKind, WeatherHistoryRecorder } from './history.ts';
 import { DeviceLogger } from './utils/device-logger.ts';
-import { ShellyPlatform, resolveStoragePath } from './platform.ts';
+import { ShellyPlatform } from './platform.ts';
 
 export type AccessoryId = string;
 export type AccessoryUuid = string;
 
+/**
+ * The categories that the accessory category resolution prefers, in order.
+ * The semantics of the old, tier-based instanceof chain are preserved for
+ * every reachable configuration: for each tier, all active abilities are
+ * scanned and the first tier that any of them declares wins. (Within the
+ * cover tier, the old chain resolved the first active cover ability in list
+ * order, while this order resolves by type priority; delegates never
+ * activate more than one cover ability, so the two cannot diverge.)
+ */
+const CATEGORY_TIERS: Categories[] = [
+    Categories.OUTLET,
+    Categories.SWITCH,
+    Categories.LIGHTBULB,
+    Categories.DOOR,
+    Categories.WINDOW,
+    Categories.WINDOW_COVERING,
+    Categories.PROGRAMMABLE_SWITCH,
+    Categories.SENSOR,
+];
+
+/**
+ * Determines the category of a HomeKit accessory from its abilities.
+ * The first category, according to the fixed `CATEGORY_TIERS` order, that an
+ * active ability declares wins; if none does, the accessory falls back to
+ * `Categories.OTHER`.
+ * @param abilities - The abilities to derive the category from.
+ */
 export function resolveAccessoryCategory(abilities: Ability[]): Categories {
     const active = abilities.filter((a) => a.active);
 
-    for (const a of active) {
-        if (a instanceof OutletAbility) {
-            return Categories.OUTLET;
-        }
-    }
-    for (const a of active) {
-        if (a instanceof SwitchAbility || a instanceof ReadonlySwitchAbility) {
-            return Categories.SWITCH;
-        }
-    }
-    for (const a of active) {
-        if (a instanceof LightAbility) {
-            return Categories.LIGHTBULB;
-        }
-    }
-    for (const a of active) {
-        if (a instanceof CoverAbility) {
-            if (a.type === 'door') {
-                return Categories.DOOR;
-            }
-            if (a.type === 'window') {
-                return Categories.WINDOW;
-            }
-            return Categories.WINDOW_COVERING;
-        }
-    }
-    for (const a of active) {
-        if (a instanceof StatelessProgrammableSwitchAbility) {
-            return Categories.PROGRAMMABLE_SWITCH;
-        }
-    }
-    for (const a of active) {
-        if (a instanceof TemperatureSensorAbility || a instanceof HumiditySensorAbility) {
-            return Categories.SENSOR;
+    for (const tier of CATEGORY_TIERS) {
+        if (active.some((a) => a.category === tier)) {
+            return tier;
         }
     }
 
@@ -73,14 +59,14 @@ export class Accessory {
      */
     readonly uuid: AccessoryUuid;
 
-    protected _platformAccessory: PlatformAccessory | null;
+    private homebridgeAccessory: PlatformAccessory | null;
 
     /**
      * The underlying homebridge platform accessory.
      * This property will be `null` when the accessory is inactive.
      */
     get platformAccessory(): PlatformAccessory | null {
-        return this._platformAccessory;
+        return this.homebridgeAccessory;
     }
 
     /**
@@ -88,22 +74,22 @@ export class Accessory {
      */
     readonly abilities: Ability[];
 
-    private _active = true;
+    private activeState = true;
 
     /**
      * Whether this accessory is active.
      * Setting an accessory to inactive will remove it from HoneKit.
      */
     get active(): boolean {
-        return this._active;
+        return this.activeState;
     }
 
     set active(value) {
-        if (value === this._active) {
+        if (value === this.activeState) {
             return;
         }
 
-        this._active = value;
+        this.activeState = value;
         this.update();
     }
 
@@ -113,15 +99,10 @@ export class Accessory {
     protected updateTimeout: ReturnType<typeof setTimeout> | null = null;
 
     /**
-     * Handles used to complete the fakegato history teardown, including the
-     * characteristic change listeners that feed the history service, or `null`
-     * if no history is currently recorded.
+     * The weather history recorder for this accessory, or `null` if history
+     * support has not been set up (or has been torn down).
      */
-    private historyState: {
-        detach: () => void;
-        api: ShellyPlatform['api'];
-        historyService: FakeGatoHistoryService;
-    } | null = null;
+    private recorder: WeatherHistoryRecorder | null = null;
 
     /**
      * @param id - The accessory ID.
@@ -129,7 +110,6 @@ export class Accessory {
      * @param name - A user-friendly name of the accessory.
      * @param platform - A reference to the homebridge platform.
      * @param log - The logger to use.
-     * @param history - Options for recording fakegato history data.
      * @param abilities - The abilities that this accessory has.
      */
     constructor(
@@ -138,15 +118,14 @@ export class Accessory {
         readonly name: string,
         readonly platform: ShellyPlatform,
         readonly log: DeviceLogger,
-        readonly history?: HistoryOptions,
         ...abilities: Ability[]
     ) {
         this.uuid = platform.api.hap.uuid.generate(`${deviceId}-${id}`);
         this.abilities = abilities;
 
         // try to load the platform accessory from cache
-        this._platformAccessory = platform.getAccessory(this.uuid) || null;
-        if (this._platformAccessory !== null) {
+        this.homebridgeAccessory = platform.getAccessory(this.uuid) || null;
+        if (this.homebridgeAccessory !== null) {
             log.debug(`Accessory loaded from cache (ID: ${id})`);
         }
 
@@ -190,17 +169,39 @@ export class Accessory {
      * Activates this accessory, by creating a platform accessory and setting up all abilities.
      */
     protected activate() {
-        if (this._platformAccessory === null) {
+        if (this.homebridgeAccessory === null) {
             // create a new platform accessory
-            this._platformAccessory = this.createPlatformAccessory();
+            this.homebridgeAccessory = this.createPlatformAccessory();
 
             this.log.debug(`Accessory activated (ID: ${this.id})`);
+        }
+
+        // set up the weather history recorder before the abilities are set up,
+        // so that the abilities' setup-time seedings of their characteristics
+        // are recorded as well
+        // this is attempted even when no ability records history: the recorder
+        // is inert then, and it removes any stale history service that a cached
+        // platform accessory may still be carrying
+        const kinds: HistoryKind[] = [];
+        for (const a of this.abilities) {
+            const kind = a.historyKind;
+            if (kind !== undefined) {
+                kinds.push(kind);
+            }
+        }
+        this.recorder = createRecorder(this.homebridgeAccessory, this.platform.api, this.uuid, this.log, kinds);
+
+        // attach the recorder to the abilities that record history
+        for (const a of this.abilities) {
+            if (a.historyKind !== undefined) {
+                a.setRecorder(this.recorder);
+            }
         }
 
         // setup all abilities
         for (const a of this.abilities) {
             try {
-                a.setup(this._platformAccessory, this.platform, this.log);
+                a.setup(this.homebridgeAccessory, this.platform, this.log);
             } catch (e) {
                 this.log.error('Failed to setup ability:', e instanceof Error ? e.message : e);
                 this.log.debug('Accessory ID:', this.id);
@@ -210,170 +211,20 @@ export class Accessory {
             }
         }
 
-        // setup the fakegato history service (if applicable)
-        try {
-            this.setupHistory();
-        } catch (e) {
-            this.log.error('Failed to setup history:', e instanceof Error ? e.message : e);
-            this.log.debug('Accessory ID:', this.id);
-            if (e instanceof Error && e.stack) {
-                this.log.debug(e.stack);
-            }
-        }
-
         // register the platform accessory
-        this.platform.addAccessory(this._platformAccessory);
+        this.platform.addAccessory(this.homebridgeAccessory);
     }
 
     /**
-     * Sets up the fakegato history service for this accessory, if it exposes
-     * temperature and/or humidity sensor abilities and history is enabled for
-     * them.
-     * At most one weather history service is created per accessory, and its
-     * characteristic change events are fed to it as history entries.
-     */
-    private setupHistory() {
-        const pa = this._platformAccessory;
-        if (pa === null) {
-            return;
-        }
-
-        const temperatureAbility = this.abilities.find(
-            (a): a is TemperatureSensorAbility => a instanceof TemperatureSensorAbility,
-        );
-        const humidityAbility = this.abilities.find(
-            (a): a is HumiditySensorAbility => a instanceof HumiditySensorAbility,
-        );
-
-        // a missing flag means that history is enabled
-        const recordTemperature = temperatureAbility !== undefined && (this.history?.temp ?? true);
-        const recordHumidity = humidityAbility !== undefined && (this.history?.humidity ?? true);
-
-        if (!recordTemperature && !recordHumidity) {
-            // the accessory may have been loaded from cache with a history
-            // service created while history was still enabled, so remove it
-            // (mirrors the cached-service cleanup in `Ability.removeService()`)
-            const frozenService = pa.services.find((s) => s.UUID === WEATHER_HISTORY_SERVICE_UUID);
-            if (frozenService !== undefined) {
-                try {
-                    pa.removeService(frozenService);
-                } catch (e) {
-                    this.log.debug(
-                        'Failed to remove the disabled history service:',
-                        e instanceof Error ? e.message : e,
-                    );
-                }
-            }
-            return;
-        }
-
-        const api = this.platform.api;
-
-        const storagePath = resolveStoragePath(api);
-        if (storagePath === undefined) {
-            this.log.debug('Skipping history support: could not determine the storage path');
-            return;
-        }
-
-        const historyService = makeHistoryService(api, 'weather', pa, {
-            log: this.log,
-            storage: 'fs',
-            path: storagePath,
-            filename: `${this.uuid}.json`,
-        });
-
-        if (historyService === null) {
-            return;
-        }
-
-        // the fakegato history service registers itself on the platform
-        // accessory during construction (fresh and cached accessories alike),
-        // so the history data is immediately available to the Eve and Home+ apps
-
-        const cleanups: (() => void)[] = [];
-
-        if (recordTemperature) {
-            const service = pa.getService(api.hap.Service.TemperatureSensor);
-            const characteristic = service?.getCharacteristic(api.hap.Characteristic.CurrentTemperature);
-
-            if (characteristic !== undefined) {
-                const addEntry = (value: number) => {
-                    historyService.addEntry({ time: Math.floor(Date.now() / 1000), temp: value });
-                };
-
-                // push an initial entry if the characteristic already holds a value
-                const initialValue = characteristic.value;
-                if (typeof initialValue === 'number' && Number.isFinite(initialValue)) {
-                    addEntry(initialValue);
-                }
-
-                const listener = (change: CharacteristicChange) => {
-                    const value = change.newValue;
-                    if (typeof value === 'number' && Number.isFinite(value)) {
-                        addEntry(value);
-                    }
-                };
-
-                characteristic.on('change', listener);
-                cleanups.push(() => characteristic.removeListener('change', listener));
-            }
-        }
-
-        if (recordHumidity) {
-            const service = pa.getService(api.hap.Service.HumiditySensor);
-            const characteristic = service?.getCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity);
-
-            if (characteristic !== undefined) {
-                const addEntry = (value: number) => {
-                    historyService.addEntry({ time: Math.floor(Date.now() / 1000), humidity: value });
-                };
-
-                const initialValue = characteristic.value;
-                if (typeof initialValue === 'number' && Number.isFinite(initialValue)) {
-                    addEntry(initialValue);
-                }
-
-                const listener = (change: CharacteristicChange) => {
-                    const value = change.newValue;
-                    if (typeof value === 'number' && Number.isFinite(value)) {
-                        addEntry(value);
-                    }
-                };
-
-                characteristic.on('change', listener);
-                cleanups.push(() => characteristic.removeListener('change', listener));
-            }
-        }
-
-        this.historyState = {
-            detach: () => {
-                for (const cleanup of cleanups) {
-                    try {
-                        cleanup();
-                    } catch {
-                        // ignore errors from listener removal
-                    }
-                }
-            },
-            api,
-            historyService,
-        };
-    }
-
-    /**
-     * Completes the fakegato history teardown, by removing the characteristic
-     * change listeners that feed the history service and by removing the
-     * service from the global fakegato timer and storage registries.
+     * Completes the weather history teardown, by detaching the recorder from
+     * the fakegato global registries.
      * Note that no persisted history data is removed; a sensor that is disabled
      * or removed will leave a stale (harmless) history file behind.
      */
     private detachHistory() {
-        if (this.historyState !== null) {
-            const state = this.historyState;
-            this.historyState = null;
-
-            state.detach();
-            removeFromFakegatoRegistries(state.api, state.historyService);
+        if (this.recorder !== null) {
+            this.recorder.detach();
+            this.recorder = null;
         }
     }
 
@@ -397,10 +248,10 @@ export class Accessory {
             }
         }
 
-        if (this._platformAccessory !== null) {
+        if (this.homebridgeAccessory !== null) {
             // unregister the platform accessory
-            this.platform.removeAccessory(this._platformAccessory);
-            this._platformAccessory = null;
+            this.platform.removeAccessory(this.homebridgeAccessory);
+            this.homebridgeAccessory = null;
 
             this.log.debug(`Accessory deactivated (ID: ${this.id})`);
         }

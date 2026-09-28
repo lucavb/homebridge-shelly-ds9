@@ -1,6 +1,8 @@
 import { CharacteristicValue as ShelliesCharacteristicValue, Temperature } from '@lucavb/shellies-ds9';
+import { Categories } from 'homebridge';
 
 import { Ability, ServiceClass } from './base.ts';
+import type { HistoryKind } from '../history.ts';
 
 /** DS18B20 operating range upper bound (°C); HAP CurrentTemperature defaults to 100. */
 const DS18B20_MAX_CELSIUS = 125;
@@ -9,8 +11,28 @@ const DS18B20_MAX_CELSIUS = 125;
  * Exposes a Shelly temperature component as a HomeKit temperature sensor.
  */
 export class TemperatureSensorAbility extends Ability {
-    constructor(readonly component: Temperature) {
+    private readonly historyEnabled: boolean;
+
+    /**
+     * @param component - The temperature component to expose.
+     * @param options - The options for this ability. A missing `history` flag
+     *   means that history is enabled.
+     */
+    constructor(
+        readonly component: Temperature,
+        options?: { history?: boolean },
+    ) {
         super(`Temperature ${component.id}`, `temperature-sensor-${component.id}`);
+
+        this.historyEnabled = options?.history !== false;
+    }
+
+    get historyKind(): HistoryKind | undefined {
+        return this.historyEnabled ? 'temperature' : undefined;
+    }
+
+    get category(): Categories {
+        return Categories.SENSOR;
     }
 
     protected get serviceClass(): ServiceClass {
@@ -20,6 +42,7 @@ export class TemperatureSensorAbility extends Ability {
     protected initialize() {
         const characteristic = this.service.getCharacteristic(this.Characteristic.CurrentTemperature);
         characteristic.setProps({ maxValue: DS18B20_MAX_CELSIUS });
+        // this setup-time seeding produces the initial history entry, if any
         this.updateTemperature(this.component.tC);
 
         this.component.on('change:tC', this.temperatureChangeHandler, this);
@@ -41,6 +64,12 @@ export class TemperatureSensorAbility extends Ability {
             return;
         }
 
-        characteristic.updateValue(Math.min(value, DS18B20_MAX_CELSIUS));
+        const tC = Math.min(value, DS18B20_MAX_CELSIUS);
+
+        characteristic.updateValue(tC);
+
+        if (Number.isFinite(tC)) {
+            this.record('temperature', tC);
+        }
     }
 }

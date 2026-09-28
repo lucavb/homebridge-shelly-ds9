@@ -1,6 +1,7 @@
 import EventEmitter from 'eventemitter3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Characteristic, HAPStatus, HapStatusError, Service, uuid } from '@homebridge/hap-nodejs';
+import { Categories } from 'homebridge';
 import type { Humidity } from '@lucavb/shellies-ds9';
 import type { PlatformAccessory } from 'homebridge';
 
@@ -97,5 +98,26 @@ describe('HumiditySensorAbility', () => {
         ability.detach();
 
         expect(offSpy).toHaveBeenCalledWith('change:rh', expect.any(Function), ability);
+    });
+
+    it('records humidity readings by default', () => {
+        const component = createHumidityComponent();
+        const ability = new HumiditySensorAbility(component);
+
+        expect(ability.historyKind).toBe('humidity');
+    });
+
+    it('records nothing when history is disabled', () => {
+        const component = createHumidityComponent();
+        const ability = new HumiditySensorAbility(component, { history: false });
+
+        expect(ability.historyKind).toBeUndefined();
+    });
+
+    it('determines the sensor accessory category', () => {
+        const component = createHumidityComponent();
+        const ability = new HumiditySensorAbility(component);
+
+        expect(ability.category).toBe(Categories.SENSOR);
     });
 });

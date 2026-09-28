@@ -2,7 +2,7 @@ import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import type { API } from 'homebridge';
 
-import { resolveStoragePath } from './platform.ts';
+import { resolveStoragePath } from './utils/storage-path.ts';
 
 describe('resolveStoragePath', () => {
     it('returns the homebridge persist path', () => {

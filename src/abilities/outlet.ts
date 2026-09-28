@@ -1,4 +1,4 @@
-import { CharacteristicValue } from 'homebridge';
+import { Categories, CharacteristicValue } from 'homebridge';
 import { CharacteristicValue as ShelliesCharacteristicValue, Switch } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
@@ -9,6 +9,10 @@ export class OutletAbility extends Ability {
      */
     constructor(readonly component: Switch) {
         super(`Outlet ${component.id + 1}`, `outlet-${component.id}`);
+    }
+
+    get category(): Categories {
+        return Categories.OUTLET;
     }
 
     protected get serviceClass(): ServiceClass {

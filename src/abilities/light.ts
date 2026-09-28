@@ -1,4 +1,4 @@
-import { CharacteristicValue } from 'homebridge';
+import { Categories, CharacteristicValue } from 'homebridge';
 import { CharacteristicValue as ShelliesCharacteristicValue, Light } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
@@ -9,6 +9,10 @@ export class LightAbility extends Ability {
      */
     constructor(readonly component: Light) {
         super(`Light ${component.id + 1}`, `light-${component.id}`);
+    }
+
+    get category(): Categories {
+        return Categories.LIGHTBULB;
     }
 
     protected get serviceClass(): ServiceClass {

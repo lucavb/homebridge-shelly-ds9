@@ -1,4 +1,4 @@
-import { Perms } from 'homebridge';
+import { Categories, Perms } from 'homebridge';
 import { CharacteristicValue as ShelliesCharacteristicValue, Input } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
@@ -13,6 +13,10 @@ export class ReadonlySwitchAbility extends Ability {
      */
     constructor(readonly component: Input) {
         super(`Switch ${component.id + 1}`, `readonly-switch-${component.id}`);
+    }
+
+    get category(): Categories {
+        return Categories.SWITCH;
     }
 
     protected get serviceClass(): ServiceClass {

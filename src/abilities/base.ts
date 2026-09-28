@@ -1,9 +1,10 @@
-import { API, Characteristic, PlatformAccessory, Service, WithUUID } from 'homebridge';
+import { API, Characteristic, PlatformAccessory, Service, WithUUID, Categories } from 'homebridge';
 
 import { CustomCharacteristics } from '../utils/characteristics.ts';
 import { CustomServices } from '../utils/services.ts';
 import { DeviceLogger } from '../utils/device-logger.ts';
 import { ShellyPlatform } from '../platform.ts';
+import type { HistoryKind, WeatherHistoryRecorder } from '../history.ts';
 
 export type ServiceClass = WithUUID<typeof Service>;
 
@@ -12,28 +13,28 @@ export type ServiceClass = WithUUID<typeof Service>;
  * An ability is roughly equivalent to a HomeKit service.
  */
 export abstract class Ability {
-    private _platformAccessory: PlatformAccessory | null = null;
+    private homebridgeAccessory: PlatformAccessory | null = null;
 
     /**
      * The associated platform accessory.
      */
     get platformAccessory(): PlatformAccessory {
-        if (this._platformAccessory === null) {
+        if (this.homebridgeAccessory === null) {
             throw new Error('Ability has not yet been setup');
         }
-        return this._platformAccessory;
+        return this.homebridgeAccessory;
     }
 
-    private _platform: ShellyPlatform | null = null;
+    private shellyPlatform: ShellyPlatform | null = null;
 
     /**
      * A reference to the platform.
      */
     protected get platform(): ShellyPlatform {
-        if (this._platform === null) {
+        if (this.shellyPlatform === null) {
             throw new Error('Ability has not yet been setup');
         }
-        return this._platform;
+        return this.shellyPlatform;
     }
 
     /**
@@ -71,46 +72,46 @@ export abstract class Ability {
         return this.platform.customServices;
     }
 
-    private _log: DeviceLogger | null = null;
+    private logger: DeviceLogger | null = null;
 
     /**
      * The logging device to use.
      */
     protected get log(): DeviceLogger {
-        if (this._log === null) {
+        if (this.logger === null) {
             throw new Error('Ability has not yet been setup');
         }
-        return this._log;
+        return this.logger;
     }
 
-    private _service: Service | null = null;
+    private hapService: Service | null = null;
 
     /**
      * The HomeKit service that this ability uses.
      */
     protected get service(): Service {
-        if (this._service === null) {
+        if (this.hapService === null) {
             throw new Error('Ability has not yet been setup');
         }
-        return this._service;
+        return this.hapService;
     }
 
-    private _active = true;
+    private activeState = true;
 
     /**
      * Whether this ability is active.
      * Setting an ability to inactive will remove its HomeKit service.
      */
     get active(): boolean {
-        return this._active;
+        return this.activeState;
     }
 
     set active(value) {
-        if (value === this._active) {
+        if (value === this.activeState) {
             return;
         }
 
-        this._active = value;
+        this.activeState = value;
         this.update();
     }
 
@@ -131,9 +132,9 @@ export abstract class Ability {
      * @param log - The logger to use.
      */
     setup(platformAccessory: PlatformAccessory, platform: ShellyPlatform, log: DeviceLogger) {
-        this._platformAccessory = platformAccessory;
-        this._platform = platform;
-        this._log = log;
+        this.homebridgeAccessory = platformAccessory;
+        this.shellyPlatform = platform;
+        this.logger = log;
 
         this.update();
     }
@@ -146,6 +147,58 @@ export abstract class Ability {
     setActive(value: boolean): this {
         this.active = value;
         return this;
+    }
+
+    /**
+     * The weather history recorder that this ability feeds its readings to, if any.
+     * The parent accessory attaches it via `setRecorder()` before it sets up its
+     * abilities, on every activate cycle. `destroy()` clears it; `Accessory.detach()`
+     * leaves it attached, which is safe because a detached recorder ignores readings.
+     */
+    private recorder: WeatherHistoryRecorder | null = null;
+
+    /**
+     * Attaches the weather history recorder for this ability.
+     * Called by the parent accessory on every activate cycle, before the
+     * abilities are set up, so that the abilities' setup-time seedings of
+     * their characteristics are recorded as well.
+     * @param recorder - The recorder to attach.
+     */
+    public setRecorder(recorder: WeatherHistoryRecorder): void {
+        this.recorder = recorder;
+    }
+
+    /**
+     * Records a sensor reading, if a weather history recorder is attached.
+     * No-op otherwise.
+     * @param kind - The kind of the reading.
+     * @param value - The reading, in degrees Celsius or percent relative humidity.
+     */
+    protected record(kind: HistoryKind, value: number): void {
+        if (this.recorder === null) {
+            return;
+        }
+
+        this.recorder.record(kind, value);
+    }
+
+    /**
+     * The kind of readings that this ability records, if it records any.
+     * Returns `undefined` when this ability does not record history.
+     */
+    get historyKind(): HistoryKind | undefined {
+        return undefined;
+    }
+
+    /**
+     * The HomeKit category that this ability maps to, if it determines its
+     * accessory's category. This getter re-creates the semantics of the old
+     * `resolveAccessoryCategory()` chain: the parent accessory uses the first
+     * ability, in a fixed order, that returns a category, and falls back to
+     * `Categories.OTHER` if none does.
+     */
+    get category(): Categories | undefined {
+        return undefined;
     }
 
     /**
@@ -163,25 +216,25 @@ export abstract class Ability {
      * If inactive, its service will be removed.
      */
     protected update() {
-        if (this._platformAccessory === null) {
+        if (this.homebridgeAccessory === null) {
             // abort if setup() hasn't been called yet
             return;
         }
 
         if (this.isActive()) {
             // we're active, add and initialize our service
-            if (this._service === null) {
-                this._service = this.addService();
+            if (this.hapService === null) {
+                this.hapService = this.addService();
                 this.initialize();
             }
         } else {
             // we're inactive, detach from and remove our service
-            if (this._service !== null) {
+            if (this.hapService !== null) {
                 this.detach();
             }
 
             this.removeService();
-            this._service = null;
+            this.hapService = null;
         }
     }
 
@@ -208,9 +261,9 @@ export abstract class Ability {
         let service: Service | undefined;
 
         // since the platform accessory may have been loaded from cache with a service created previously,
-        // we can't just rely on the _service property here
-        if (this._service !== null) {
-            service = this._service;
+        // we can't just rely on hapService here
+        if (this.hapService !== null) {
+            service = this.hapService;
         } else if (this.serviceName && this.serviceSubtype) {
             service = this.platformAccessory.getService(this.serviceName);
         } else {
@@ -263,9 +316,10 @@ export abstract class Ability {
     destroy() {
         this.detach();
 
-        this._platformAccessory = null;
-        this._platform = null;
-        this._log = null;
-        this._service = null;
+        this.homebridgeAccessory = null;
+        this.shellyPlatform = null;
+        this.logger = null;
+        this.hapService = null;
+        this.recorder = null;
     }
 }

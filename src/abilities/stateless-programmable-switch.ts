@@ -1,3 +1,4 @@
+import { Categories } from 'homebridge';
 import { Input } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
@@ -14,6 +15,10 @@ export class StatelessProgrammableSwitchAbility extends Ability {
      */
     constructor(readonly component: Input) {
         super(`Button ${component.id + 1}`, `stateless-programmable-switch-${component.id}`);
+    }
+
+    get category(): Categories {
+        return Categories.PROGRAMMABLE_SWITCH;
     }
 
     protected get serviceClass(): ServiceClass {

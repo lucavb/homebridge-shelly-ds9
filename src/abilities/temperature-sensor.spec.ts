@@ -1,6 +1,7 @@
 import EventEmitter from 'eventemitter3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Characteristic, HAPStatus, HapStatusError, Service, uuid } from '@homebridge/hap-nodejs';
+import { Categories } from 'homebridge';
 import type { Temperature } from '@lucavb/shellies-ds9';
 import type { PlatformAccessory } from 'homebridge';
 
@@ -118,5 +119,26 @@ describe('TemperatureSensorAbility', () => {
         ability.detach();
 
         expect(offSpy).toHaveBeenCalledWith('change:tC', expect.any(Function), ability);
+    });
+
+    it('records temperature readings by default', () => {
+        const component = createTemperatureComponent();
+        const ability = new TemperatureSensorAbility(component);
+
+        expect(ability.historyKind).toBe('temperature');
+    });
+
+    it('records nothing when history is disabled', () => {
+        const component = createTemperatureComponent();
+        const ability = new TemperatureSensorAbility(component, { history: false });
+
+        expect(ability.historyKind).toBeUndefined();
+    });
+
+    it('determines the sensor accessory category', () => {
+        const component = createTemperatureComponent();
+        const ability = new TemperatureSensorAbility(component);
+
+        expect(ability.category).toBe(Categories.SENSOR);
     });
 });

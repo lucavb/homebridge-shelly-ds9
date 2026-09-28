@@ -1,5 +1,4 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
-import { join } from 'path';
 
 import {
     Device,
@@ -13,6 +12,7 @@ import {
 import { CustomCharacteristics, createCharacteristics } from './utils/characteristics.ts';
 import { CustomServices, createServices } from './utils/services.ts';
 import { DeviceCache } from './utils/device-cache.ts';
+import { resolveStoragePath } from './utils/storage-path.ts';
 import { DeviceDelegate } from './device-delegates/index.ts';
 import { PlatformOptions } from './config.ts';
 
@@ -27,33 +27,6 @@ export const PLUGIN_NAME = '@lucavb/homebridge-shelly-ds9';
  * The name of this homebridge platform.
  */
 export const PLATFORM_NAME = 'ShellyDS9';
-
-/**
- * Resolves the file system path that is used for persistent data, such as the
- * device cache and fakegato history files.
- * Never throws; returns `undefined` if no path could be determined.
- * @param api - A reference to the homebridge API.
- */
-export function resolveStoragePath(api: API): string | undefined {
-    try {
-        const dir = api.user.persistPath();
-        if (typeof dir === 'string' && dir.length > 0) {
-            return dir;
-        }
-    } catch {
-        // fall through to the user storage path
-    }
-
-    try {
-        const dir = api.user.storagePath();
-        if (typeof dir === 'string' && dir.length > 0) {
-            return join(dir, 'persist');
-        }
-        return undefined;
-    } catch {
-        return undefined;
-    }
-}
 
 /**
  * Utility class that "discovers" devices from the configuration options.

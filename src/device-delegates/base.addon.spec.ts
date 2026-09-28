@@ -4,11 +4,9 @@ import { Characteristic, HAPStatus, HapStatusError, Service, uuid } from '@homeb
 import { Humidity, RpcHandler, ShellyPlus1Pm, Temperature } from '@lucavb/shellies-ds9';
 
 import { HumiditySensorAbility, TemperatureSensorAbility } from '../abilities/index.ts';
-import { resolveAccessoryCategory } from '../accessory.ts';
+import { Accessory, AccessoryId, resolveAccessoryCategory } from '../accessory.ts';
 import { DeviceOptions } from '../config.ts';
-import type { HistoryOptions } from '../history.ts';
 import { ShellyPlus1Delegate } from './shelly-plus-1.ts';
-import { DeviceDelegate } from './base.ts';
 import { ShellyPlatform } from '../platform.ts';
 import { ADDON_SENSOR_STATUS } from '../fixtures/addon-sensors.ts';
 
@@ -24,33 +22,41 @@ class TestRpcHandler extends RpcHandler {
 
 class MockPlatformAccessory {
     context: Record<string, unknown> = {};
-    private readonly services = new Map<string, Service>();
+    readonly services: Service[] = [];
 
     constructor(
         readonly displayName: string,
         readonly uuid: string,
         readonly category: Categories,
-    ) {}
+    ) {
+        // a HomeKit accessory always has an accessory information service
+        this.services.push(new Service.AccessoryInformation());
+    }
 
-    addService(serviceClass: typeof Service, name?: string, subtype?: string): Service {
-        const service = new serviceClass(name, subtype);
-        if (name) {
-            this.services.set(name, service);
-        }
-        if (subtype) {
-            this.services.set(subtype, service);
-        }
+    addService(serviceClassOrService: unknown, name?: string, subtype?: string): Service {
+        const service =
+            typeof serviceClassOrService === 'function'
+                ? new (serviceClassOrService as { new (name?: string, subtype?: string): Service })(name, subtype)
+                : (serviceClassOrService as Service);
+
+        this.services.push(service);
+
         return service;
     }
 
+    // the contract fakegato and the abilities depend on
     getService(nameOrClass: string | typeof Service): Service | undefined {
-        if (typeof nameOrClass === 'string') {
-            return this.services.get(nameOrClass);
-        }
-        return [...this.services.values()].find((service) => service.UUID === nameOrClass.UUID);
+        const targetUuid =
+            typeof nameOrClass === 'string' ? nameOrClass : (nameOrClass as unknown as { UUID: string }).UUID;
+        return this.services.find((service) => service.UUID === targetUuid);
     }
 
-    removeService = vi.fn();
+    removeService(service: Service) {
+        const index = this.services.indexOf(service);
+        if (index >= 0) {
+            this.services.splice(index, 1);
+        }
+    }
 }
 
 function createMockPlatform(): ShellyPlatform {
@@ -80,8 +86,11 @@ function createMockPlatform(): ShellyPlatform {
     } as unknown as ShellyPlatform;
 }
 
-function getDelegateAccessories(delegate: DeviceDelegate): Map<string, unknown> {
-    return (delegate as ShellyPlus1Delegate & { accessories: Map<string, unknown> }).accessories;
+class TestDelegate extends ShellyPlus1Delegate {
+    // exposes the delegate's accessory map for assertions
+    get createdAccessories(): Map<AccessoryId, Accessory> {
+        return this.accessories;
+    }
 }
 
 function createPlainDevice(): ShellyPlus1Pm {
@@ -124,7 +133,7 @@ function createAddonDevice(): ShellyPlus1Pm {
 }
 
 describe('Shelly Sensor Add-on support', () => {
-    let delegate: DeviceDelegate | undefined;
+    let delegate: TestDelegate | undefined;
 
     beforeEach(() => {
         vi.restoreAllMocks();
@@ -161,10 +170,10 @@ describe('Shelly Sensor Add-on support', () => {
             name: 'Garage Heater',
         };
 
-        delegate = new ShellyPlus1Delegate(device, options, platform);
+        delegate = new TestDelegate(device, options, platform);
         await vi.runAllTimersAsync();
 
-        const accessoryIds = [...getDelegateAccessories(delegate).keys()].sort();
+        const accessoryIds = [...delegate.createdAccessories.keys()].sort();
         expect(accessoryIds).toEqual([
             'addon-climate-100',
             'addon-temperature-101',
@@ -174,15 +183,13 @@ describe('Shelly Sensor Add-on support', () => {
             'switch',
         ]);
 
-        const climateAccessory = (
-            delegate as ShellyPlus1Delegate & { accessories: Map<string, { abilities: unknown[]; name: string }> }
-        ).accessories.get('addon-climate-100');
+        const climateAccessory = delegate.createdAccessories.get('addon-climate-100');
         expect(climateAccessory?.abilities.some((ability) => ability instanceof TemperatureSensorAbility)).toBe(true);
         expect(climateAccessory?.abilities.some((ability) => ability instanceof HumiditySensorAbility)).toBe(true);
         expect(climateAccessory?.name).toContain('Tank');
     });
 
-    it('translates disabled history options into the accessory history flags', async () => {
+    it('translates disabled history options into the sensor abilities', async () => {
         const device = createAddonDevice();
         await device.discoverAddonComponents();
 
@@ -193,13 +200,20 @@ describe('Shelly Sensor Add-on support', () => {
             'humidity:100': { history: false },
         };
 
-        delegate = new ShellyPlus1Delegate(device, options, createMockPlatform());
+        delegate = new TestDelegate(device, options, createMockPlatform());
         await vi.runAllTimersAsync();
 
-        const climateAccessory = (
-            delegate as ShellyPlus1Delegate & { accessories: Map<string, { history: HistoryOptions }> }
-        ).accessories.get('addon-climate-100');
-        expect(climateAccessory?.history).toEqual({ temp: false, humidity: false });
+        const climateAccessory = delegate.createdAccessories.get('addon-climate-100');
+        expect(climateAccessory).toBeDefined();
+
+        const temperatureAbility = climateAccessory!.abilities.find(
+            (a): a is TemperatureSensorAbility => a instanceof TemperatureSensorAbility,
+        );
+        const humidityAbility = climateAccessory!.abilities.find(
+            (a): a is HumiditySensorAbility => a instanceof HumiditySensorAbility,
+        );
+        expect(temperatureAbility?.historyKind).toBeUndefined();
+        expect(humidityAbility?.historyKind).toBeUndefined();
     });
 
     it('enables history by default for add-on sensors', async () => {
@@ -211,13 +225,20 @@ describe('Shelly Sensor Add-on support', () => {
             protocol: 'websocket',
         };
 
-        delegate = new ShellyPlus1Delegate(device, options, createMockPlatform());
+        delegate = new TestDelegate(device, options, createMockPlatform());
         await vi.runAllTimersAsync();
 
-        const climateAccessory = (
-            delegate as ShellyPlus1Delegate & { accessories: Map<string, { history: HistoryOptions }> }
-        ).accessories.get('addon-climate-100');
-        expect(climateAccessory?.history).toEqual({ temp: true, humidity: true });
+        const climateAccessory = delegate.createdAccessories.get('addon-climate-100');
+        expect(climateAccessory).toBeDefined();
+
+        const temperatureAbility = climateAccessory!.abilities.find(
+            (a): a is TemperatureSensorAbility => a instanceof TemperatureSensorAbility,
+        );
+        const humidityAbility = climateAccessory!.abilities.find(
+            (a): a is HumiditySensorAbility => a instanceof HumiditySensorAbility,
+        );
+        expect(temperatureAbility?.historyKind).toBe('temperature');
+        expect(humidityAbility?.historyKind).toBe('humidity');
     });
 
     it('does not create add-on accessories when temperature components are excluded', async () => {
@@ -237,10 +258,10 @@ describe('Shelly Sensor Add-on support', () => {
             'humidity:100': { exclude: true },
         };
 
-        delegate = new ShellyPlus1Delegate(device, options, platform);
+        delegate = new TestDelegate(device, options, platform);
         await vi.runAllTimersAsync();
 
-        expect([...getDelegateAccessories(delegate).keys()]).toEqual(['switch']);
+        expect([...delegate.createdAccessories.keys()]).toEqual(['switch']);
     });
 
     it('does not create a standalone humidity accessory when a DHT temperature pair is excluded', async () => {
@@ -253,11 +274,11 @@ describe('Shelly Sensor Add-on support', () => {
             'temperature:100': { exclude: true },
         };
 
-        delegate = new ShellyPlus1Delegate(device, options, createMockPlatform());
+        delegate = new TestDelegate(device, options, createMockPlatform());
         await vi.runAllTimersAsync();
 
-        expect(getDelegateAccessories(delegate).has('addon-humidity-100')).toBe(false);
-        expect(getDelegateAccessories(delegate).has('addon-climate-100')).toBe(false);
+        expect(delegate.createdAccessories.has('addon-humidity-100')).toBe(false);
+        expect(delegate.createdAccessories.has('addon-climate-100')).toBe(false);
     });
 
     it('creates a temperature-only accessory when humidity is excluded on a DHT pair', async () => {
@@ -270,10 +291,10 @@ describe('Shelly Sensor Add-on support', () => {
             'humidity:100': { exclude: true },
         };
 
-        delegate = new ShellyPlus1Delegate(device, options, createMockPlatform());
+        delegate = new TestDelegate(device, options, createMockPlatform());
         await vi.runAllTimersAsync();
 
-        expect([...getDelegateAccessories(delegate).keys()].sort()).toEqual([
+        expect([...delegate.createdAccessories.keys()].sort()).toEqual([
             'addon-temperature-100',
             'addon-temperature-101',
             'addon-temperature-102',
@@ -287,17 +308,17 @@ describe('Shelly Sensor Add-on support', () => {
         const device = createPlainDevice();
         await device.discoverAddonComponents();
 
-        delegate = new ShellyPlus1Delegate(device, { exclude: false, protocol: 'websocket' }, createMockPlatform());
+        delegate = new TestDelegate(device, { exclude: false, protocol: 'websocket' }, createMockPlatform());
         await vi.runAllTimersAsync();
 
-        expect([...getDelegateAccessories(delegate).keys()]).toEqual(['switch']);
+        expect([...delegate.createdAccessories.keys()]).toEqual(['switch']);
     });
 
     it('detaches add-on sensor listeners when the delegate is torn down', async () => {
         const device = createAddonDevice();
         await device.discoverAddonComponents();
 
-        delegate = new ShellyPlus1Delegate(device, { exclude: false, protocol: 'websocket' }, createMockPlatform());
+        delegate = new TestDelegate(device, { exclude: false, protocol: 'websocket' }, createMockPlatform());
         await vi.runAllTimersAsync();
 
         const temperature = device.getComponent('temperature:100') as Temperature;

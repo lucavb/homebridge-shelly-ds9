@@ -1,4 +1,4 @@
-import { CharacteristicValue } from 'homebridge';
+import { Categories, CharacteristicValue } from 'homebridge';
 import { Cover } from '@lucavb/shellies-ds9';
 
 import { Ability, ServiceClass } from './base.ts';
@@ -19,6 +19,16 @@ export class CoverAbility extends Ability {
         readonly type: 'door' | 'window' | 'windowCovering' = 'window',
     ) {
         super(`${names[type]} ${component.id + 1}`, `${type}-${component.id}`);
+    }
+
+    get category(): Categories {
+        if (this.type === 'door') {
+            return Categories.DOOR;
+        }
+        if (this.type === 'window') {
+            return Categories.WINDOW;
+        }
+        return Categories.WINDOW_COVERING;
     }
 
     protected get serviceClass(): ServiceClass {
