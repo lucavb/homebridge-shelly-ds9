@@ -1,4 +1,4 @@
-import { ShellyPro2, ShellyPro2Rev1, ShellyPro2Rev2 } from '@lucavb/shellies-ds9';
+import { ShellyPro2, ShellyPro2Rev1, ShellyPro2Rev2, ShellyPro2Rev2Ul } from '@lucavb/shellies-ds9';
 
 import { DeviceDelegate } from './base.ts';
 
@@ -14,4 +14,4 @@ export class ShellyPro2Delegate extends DeviceDelegate {
     }
 }
 
-DeviceDelegate.registerDelegate(ShellyPro2Delegate, ShellyPro2, ShellyPro2Rev1, ShellyPro2Rev2);
+DeviceDelegate.registerDelegate(ShellyPro2Delegate, ShellyPro2, ShellyPro2Rev1, ShellyPro2Rev2, ShellyPro2Rev2Ul);
