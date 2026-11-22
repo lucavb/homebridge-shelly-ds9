@@ -114,9 +114,22 @@ DeviceDelegate.registerDelegate(ShellyPlusRGBWPmDelegate, ShellyPlusRGBWPM);
 /** LightAbility variant that can reject HomeKit commands after a profile swap. */
 class RestartAwareLightAbility extends LightAbility {
     private stale = false;
+    private serviceReady = false;
+
+    protected initialize() {
+        super.initialize();
+        this.serviceReady = true;
+        if (this.stale) {
+            this.installUnavailableReadHandlers();
+            this.detach();
+        }
+    }
 
     markStale() {
         this.stale = true;
+        if (this.serviceReady) {
+            this.installUnavailableReadHandlers();
+        }
     }
 
     protected async onSetHandler(value: CharacteristicValue) {
@@ -133,5 +146,16 @@ class RestartAwareLightAbility extends LightAbility {
         if (this.stale) {
             throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
+    }
+
+    private installUnavailableReadHandlers() {
+        for (const characteristic of [this.Characteristic.On, this.Characteristic.Brightness]) {
+            this.service.getCharacteristic(characteristic).onGet(this.unavailableReadHandler.bind(this));
+        }
+    }
+
+    private unavailableReadHandler(): CharacteristicValue {
+        this.assertAvailable();
+        return false;
     }
 }

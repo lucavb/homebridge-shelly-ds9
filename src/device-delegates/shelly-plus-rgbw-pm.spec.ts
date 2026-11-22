@@ -114,6 +114,7 @@ function setupAbility(
         removeService: vi.fn(),
     } as unknown as PlatformAccessory;
     (ability.setup as (...args: unknown[]) => void)(platformAccessory, platform as ShellyPlatform, delegate.log);
+    return (ability as unknown as { service: Service }).service;
 }
 
 describe('ShellyPlusRGBWPmDelegate', () => {
@@ -232,7 +233,7 @@ describe('ShellyPlusRGBWPmDelegate', () => {
         const firstAccessory = accessories(delegate).get('light')!;
         const rgbAbility = firstAccessory.abilities[1] as { component?: unknown; detach(): void };
         expect(rgbAbility.component).toBe(oldComponent);
-        setupAbility(rgbAbility as never, platform, delegate);
+        const service = setupAbility(rgbAbility as never, platform, delegate);
         const detach = vi.spyOn(rgbAbility, 'detach');
         const markStale = vi.spyOn(rgbAbility as typeof rgbAbility & { markStale(): void }, 'markStale');
         expect(rpcHandler.listeners('statusUpdate')).toHaveLength(1);
@@ -251,6 +252,16 @@ describe('ShellyPlusRGBWPmDelegate', () => {
         await expect(
             (rgbAbility as unknown as { onSetHandler(value: boolean): Promise<void> }).onSetHandler(true),
         ).rejects.toMatchObject({ hapStatus: HAPStatus.SERVICE_COMMUNICATION_FAILURE });
+        for (const type of [
+            Characteristic.On,
+            Characteristic.Brightness,
+            Characteristic.Hue,
+            Characteristic.Saturation,
+        ]) {
+            await expect(service.getCharacteristic(type).handleGetRequest()).rejects.toBe(
+                HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+            );
+        }
         delegate.detach();
     });
 
@@ -265,7 +276,7 @@ describe('ShellyPlusRGBWPmDelegate', () => {
             onSetHandler(value: boolean): Promise<void>;
         };
         expect(firstAbility.component).toBe(oldComponent);
-        setupAbility(firstAbility, platform, delegate);
+        const service = setupAbility(firstAbility, platform, delegate);
         components.set('light:0', component('light:0', 0));
 
         rpcHandler.emit('statusUpdate', {});
@@ -273,9 +284,71 @@ describe('ShellyPlusRGBWPmDelegate', () => {
         await expect(firstAbility.onSetHandler(true)).rejects.toMatchObject({
             hapStatus: HAPStatus.SERVICE_COMMUNICATION_FAILURE,
         });
+        for (const type of [Characteristic.On, Characteristic.Brightness]) {
+            await expect(service.getCharacteristic(type).handleGetRequest()).rejects.toBe(
+                HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+            );
+        }
         expect(oldComponent.set).not.toHaveBeenCalled();
         delegate.detach();
     });
+
+    it('keeps lights live and writable on routine status updates without component replacement', async () => {
+        vi.useFakeTimers();
+        const { delegate, components, logger, rpcHandler, platform } = createDelegate('light');
+        const ability = accessories(delegate).get('light-0')!.abilities[1] as {
+            component?: unknown;
+            setup(...args: never[]): void;
+            onSetHandler(value: boolean): Promise<void>;
+        };
+        const service = setupAbility(ability, platform, delegate);
+        const lightComponent = components.get('light:0')!;
+
+        rpcHandler.emit('statusUpdate', {});
+
+        expect(rpcHandler.listeners('statusUpdate')).toHaveLength(1);
+        expect(logger.log).not.toHaveBeenCalledWith(
+            expect.anything(),
+            expect.stringContaining('Lighting profile changed; restart Homebridge'),
+        );
+        await expect(service.getCharacteristic(Characteristic.On).handleGetRequest()).resolves.toBe(false);
+        await expect(service.getCharacteristic(Characteristic.Brightness).handleGetRequest()).resolves.toBe(50);
+        await expect(ability.onSetHandler(true)).resolves.toBeUndefined();
+        expect(lightComponent.set).toHaveBeenCalledWith(true);
+        delegate.detach();
+    });
+    it.each(['rgb', 'light'] as const)(
+        'makes characteristics unavailable when %s becomes stale before activation',
+        async (profile) => {
+            vi.useFakeTimers();
+            const config =
+                profile === 'light'
+                    ? Object.fromEntries([0, 1, 2, 3].map((id) => [`light:${id}`, { exclude: true }]))
+                    : { 'rgb:0': { exclude: true } };
+            const { delegate, components, rpcHandler, platform } = createDelegate(profile, config);
+            const componentKey = profile === 'rgb' ? 'rgb:0' : 'light:0';
+            const accessoryId = profile === 'rgb' ? 'light' : 'light-0';
+            const ability = accessories(delegate).get(accessoryId)!.abilities[1] as {
+                component?: unknown;
+                setup(...args: never[]): void;
+            };
+            components.set(componentKey, component(componentKey, 0));
+            rpcHandler.emit('statusUpdate', {});
+
+            const service = setupAbility(ability, platform, delegate);
+            const characteristics =
+                profile === 'rgb'
+                    ? [Characteristic.On, Characteristic.Brightness, Characteristic.Hue, Characteristic.Saturation]
+                    : [Characteristic.On, Characteristic.Brightness];
+            for (const type of characteristics) {
+                await expect(service.getCharacteristic(type).handleGetRequest()).rejects.toBe(
+                    HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+                );
+            }
+            expect(components.get(componentKey)?.listenerCount('change:output')).toBe(0);
+            delegate.detach();
+        },
+    );
 
     it('removes its profile watcher during delegate teardown', () => {
         vi.useFakeTimers();

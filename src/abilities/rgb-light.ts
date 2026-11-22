@@ -86,6 +86,7 @@ export class RGBLightAbility extends Ability {
     private saturationWritebackListener: ((change: CharacteristicChange) => void) | null = null;
     private attached = false;
     private stale = false;
+    private serviceReady = false;
 
     constructor(readonly component: RGB | RGBW) {
         super(`Color Light ${component.id + 1}`, `rgb-light-${component.id}`);
@@ -142,9 +143,14 @@ export class RGBLightAbility extends Ability {
         hue.on('change', this.hueWritebackListener);
         saturation.on('change', this.saturationWritebackListener);
 
-        this.component.on('change:output', this.outputChangeHandler, this);
-        this.component.on('change:brightness', this.brightnessChangeHandler, this);
-        this.component.on('change:rgb', this.rgbChangeHandler, this);
+        this.serviceReady = true;
+        if (this.stale) {
+            this.installUnavailableReadHandlers();
+        } else {
+            this.component.on('change:output', this.outputChangeHandler, this);
+            this.component.on('change:brightness', this.brightnessChangeHandler, this);
+            this.component.on('change:rgb', this.rgbChangeHandler, this);
+        }
     }
 
     detach() {
@@ -294,6 +300,9 @@ export class RGBLightAbility extends Ability {
     /** Prevents commands from reaching a component removed by a profile switch. */
     markStale() {
         this.stale = true;
+        if (this.serviceReady) {
+            this.installUnavailableReadHandlers();
+        }
     }
 
     private async queueColorWrite(): Promise<void> {
@@ -386,6 +395,22 @@ export class RGBLightAbility extends Ability {
         if (this.stale || !this.attached) {
             throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
+    }
+
+    private installUnavailableReadHandlers() {
+        for (const characteristic of [
+            this.Characteristic.On,
+            this.Characteristic.Brightness,
+            this.Characteristic.Hue,
+            this.Characteristic.Saturation,
+        ]) {
+            this.service.getCharacteristic(characteristic).onGet(this.unavailableReadHandler.bind(this));
+        }
+    }
+
+    private unavailableReadHandler(): CharacteristicValue {
+        this.assertAvailable();
+        return false;
     }
 }
 

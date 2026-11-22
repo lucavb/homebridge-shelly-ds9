@@ -20,8 +20,14 @@ export class LightAbility extends Ability {
     }
 
     protected initialize() {
-        // set the initial value
-        this.service.setCharacteristic(this.Characteristic.On, this.component.output);
+        // Seed only values that were actually reported. Some firmware omits
+        // brightness, in which case leave HAP's existing/default value intact.
+        if (typeof this.component.output === 'boolean') {
+            this.service.setCharacteristic(this.Characteristic.On, this.component.output);
+        }
+        if (typeof this.component.brightness === 'number' && Number.isFinite(this.component.brightness)) {
+            this.service.setCharacteristic(this.Characteristic.Brightness, this.component.brightness);
+        }
 
         // listen for commands from HomeKit
         this.service.getCharacteristic(this.Characteristic.On).onSet(this.onSetHandler.bind(this));
@@ -57,6 +63,9 @@ export class LightAbility extends Ability {
      * Handles changes to the `output` property.
      */
     protected outputChangeHandler(value: ShelliesCharacteristicValue) {
+        if (typeof value !== 'boolean') {
+            return;
+        }
         if (value) {
             this.log.info('Light Status(' + this.component.id + '): on');
         } else {
@@ -85,6 +94,9 @@ export class LightAbility extends Ability {
      * Handles changes to the `brightness` property.
      */
     protected brightnessChangeHandler(value: ShelliesCharacteristicValue) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            return;
+        }
         this.log.info('Light Status(' + this.component.id + '): ' + value);
         this.service.getCharacteristic(this.Characteristic.Brightness).updateValue(value as number);
     }
