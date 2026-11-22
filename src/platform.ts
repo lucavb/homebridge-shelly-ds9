@@ -13,7 +13,9 @@ import { CustomCharacteristics, createCharacteristics } from './utils/characteri
 import { CustomServices, createServices } from './utils/services.ts';
 import { DeviceCache } from './utils/device-cache.ts';
 import { resolveStoragePath } from './utils/storage-path.ts';
+import { bthomeSensorKindDescriptors, parseBTHomeSensorKind } from './utils/bthome.ts';
 import { DeviceDelegate } from './device-delegates/index.ts';
+import { BTHomeHostDelegate, ShellyBluGatewayDelegate } from './device-delegates/shelly-blu-gateway.ts';
 import { PlatformOptions } from './config.ts';
 
 type AccessoryUuid = string;
@@ -152,6 +154,18 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      */
     readonly deviceDelegates: Map<DeviceId, DeviceDelegate> = new Map();
 
+    /** Hosted BTHome manager delegates attached alongside normal device delegates. */
+    readonly bthomeDelegates: Map<DeviceId, BTHomeHostDelegate> = new Map();
+
+    /** Prevents the same physical BLE peripheral from being exposed by multiple hosts. */
+    readonly bthomePeripheralOwners = new Map<string, DeviceId>();
+
+    private readonly discoverers = new Set<DeviceDiscoverer>();
+
+    private mdnsDiscoverer: MdnsDeviceDiscoverer | undefined;
+
+    private shuttingDown = false;
+
     /**
      * This constructor is invoked by homebridge.
      * @param log - A logging device for this platform.
@@ -179,6 +193,9 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
             autoLoadConfig: true,
             deviceOptions: this.options.deviceOptions,
         });
+        // Keep the add listener: discovery already in flight may still emit a
+        // device after shutdown. Its shutdown guard closes the late RPC handler
+        // without creating delegates/accessories.
         this.shellies
             .on('add', this.handleAddedDevice, this)
             .on('remove', this.handleRemovedDevice, this)
@@ -191,6 +208,9 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
 
         // wait for homebridge to finish launching
         api.on('didFinishLaunching', this.initialize.bind(this));
+        // Detach listeners/timers only. Homebridge already persisted accessories;
+        // ordinary shutdown must not unregister their stable identities.
+        api.on('shutdown', this.detach.bind(this));
     }
 
     /**
@@ -208,6 +228,118 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      */
     getAccessory(uuid: AccessoryUuid): PlatformAccessory | undefined {
         return this.accessories.get(uuid);
+    }
+
+    /** Returns cached BTHome accessories, optionally restricted to their Shelly host. */
+    getBTHomeAccessories(deviceId?: DeviceId): PlatformAccessory[] {
+        return Array.from(this.accessories.values()).filter((accessory) => {
+            const device = accessory.context.device as { id?: unknown; bthomeAddress?: unknown } | undefined;
+            return typeof device?.bthomeAddress === 'string' && (deviceId === undefined || device.id === deviceId);
+        });
+    }
+
+    /** Marks cached sensor characteristics unavailable before the host reconnects. */
+    markBTHomeAccessoriesUnavailable(deviceId?: DeviceId) {
+        const error = new this.api.hap.HapStatusError(this.api.hap.HAPStatus.RESOURCE_BUSY);
+        for (const accessory of this.getBTHomeAccessories(deviceId)) {
+            const device = accessory.context.device as Record<string, unknown>;
+            const unavailable = (device.bthomeUnavailableServices as Record<string, unknown> | undefined) ?? {};
+            for (const service of [...accessory.services]) {
+                const subtype = service.subtype;
+                if (!subtype?.startsWith('bthome-')) {
+                    continue;
+                }
+                // Button services (`bthome-button-*`) and unknown kinds have no
+                // readable value to invalidate. The kind → characteristic mapping
+                // comes from the shared BTHome descriptor table, so every
+                // registered sensor kind is covered here.
+                const kind = parseBTHomeSensorKind(subtype);
+                if (kind === undefined) {
+                    continue;
+                }
+                for (const name of bthomeSensorKindDescriptors[kind].characteristics) {
+                    service.getCharacteristic(this.api.hap.Characteristic[name]).updateValue(error);
+                }
+                unavailable[subtype] = true;
+            }
+            device.bthomeUnavailableServices = unavailable;
+        }
+    }
+
+    /** Detaches every delegate without unregistering persistent accessories. */
+    protected detach() {
+        if (this.shuttingDown) {
+            return;
+        }
+        this.shuttingDown = true;
+
+        for (const discoverer of this.discoverers) {
+            this.shellies.unregisterDiscoverer(discoverer);
+        }
+        this.discoverers.clear();
+
+        if (this.mdnsDiscoverer) {
+            void this.mdnsDiscoverer.stop().catch((error: unknown) => {
+                this.log.debug(
+                    'Failed to stop mDNS discovery during shutdown:',
+                    error instanceof Error ? error.message : error,
+                );
+            });
+            this.mdnsDiscoverer = undefined;
+        }
+
+        this.shellies
+            .off('remove', this.handleRemovedDevice, this)
+            .off('exclude', this.handleExcludedDevice, this)
+            .off('unknown', this.handleUnknownDevice, this)
+            .off('error', this.handleError, this);
+
+        for (const delegate of this.deviceDelegates.values()) {
+            delegate.detach();
+        }
+        for (const delegate of this.bthomeDelegates.values()) {
+            delegate.detach();
+        }
+
+        // These WebSocket handlers belong to this platform. Closing them is
+        // non-destructive: delegates are detached first and cached accessories
+        // remain registered for Homebridge to persist.
+        for (const device of this.shellies.values()) {
+            this.closeDeviceHandler(device);
+        }
+    }
+
+    private closeDeviceHandler(device: Device) {
+        try {
+            void Promise.resolve(device.rpcHandler.destroy()).catch((error: unknown) => {
+                this.log.debug(
+                    'Failed to close a Shelly connection during shutdown:',
+                    error instanceof Error ? error.message : error,
+                );
+            });
+        } catch (error) {
+            this.log.debug(
+                'Failed to close a Shelly connection during shutdown:',
+                error instanceof Error ? error.message : error,
+            );
+        }
+    }
+
+    /** Claims a normalized physical BTHome address for its current RPC host. */
+    claimBTHomePeripheral(address: string, deviceId: DeviceId): boolean {
+        const owner = this.bthomePeripheralOwners.get(address);
+        if (owner !== undefined && owner !== deviceId) {
+            return false;
+        }
+        this.bthomePeripheralOwners.set(address, deviceId);
+        return true;
+    }
+
+    /** Releases a BTHome address only when the caller still owns it. */
+    releaseBTHomePeripheral(address: string, deviceId: DeviceId) {
+        if (this.bthomePeripheralOwners.get(address) === deviceId) {
+            this.bthomePeripheralOwners.delete(address);
+        }
     }
 
     /**
@@ -260,13 +392,25 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      * Initializes this platform.
      */
     protected async initialize() {
+        if (this.shuttingDown) {
+            return;
+        }
         this.log.debug(
             this.accessories.size === 1
                 ? 'Loaded 1 accessory from cache'
                 : `Loaded ${this.accessories.size} accessories from cache`,
         );
 
+        if (!this.options.bthome.enable) {
+            this.removeAccessory(...this.getBTHomeAccessories());
+        } else {
+            this.markBTHomeAccessoriesUnavailable();
+        }
+
         await this.runConfigDeviceDiscoverer();
+        if (this.shuttingDown) {
+            return;
+        }
 
         // load cached devices
         try {
@@ -274,8 +418,14 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
         } catch (e) {
             this.log.error('Failed to load cached devices:', e instanceof Error ? e.message : e);
         }
+        if (this.shuttingDown) {
+            return;
+        }
 
         await this.runCacheDeviceDiscoverer();
+        if (this.shuttingDown) {
+            return;
+        }
 
         if (this.options.mdns.enable === true) {
             this.startMdnsDeviceDiscovery();
@@ -288,34 +438,60 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      * Discovers all devices found in the configuration.
      */
     protected runConfigDeviceDiscoverer(): Promise<void> {
+        if (this.shuttingDown) {
+            return Promise.resolve();
+        }
         // create a device discoverer
         const discoverer = new ConfigDeviceDiscoverer(this.options);
-        // register it
-        this.shellies.registerDiscoverer(discoverer);
-        // run it
-        return discoverer.run();
+        if (!this.registerDiscoverer(discoverer)) {
+            return Promise.resolve();
+        }
+        return discoverer.run().finally(() => this.unregisterDiscoverer(discoverer));
     }
 
     /**
      * Discovers all devices found in cache.
      */
     protected runCacheDeviceDiscoverer(): Promise<void> {
+        if (this.shuttingDown) {
+            return Promise.resolve();
+        }
         // create a device discoverer
         const discoverer = new CacheDeviceDiscoverer(this.deviceCache);
-        // register it
+        if (!this.registerDiscoverer(discoverer)) {
+            return Promise.resolve();
+        }
+        return discoverer.run().finally(() => this.unregisterDiscoverer(discoverer));
+    }
+
+    private registerDiscoverer(discoverer: DeviceDiscoverer): boolean {
+        if (this.shuttingDown) {
+            return false;
+        }
+        this.discoverers.add(discoverer);
         this.shellies.registerDiscoverer(discoverer);
-        // run it
-        return discoverer.run();
+        return true;
+    }
+
+    private unregisterDiscoverer(discoverer: DeviceDiscoverer) {
+        if (this.discoverers.delete(discoverer)) {
+            this.shellies.unregisterDiscoverer(discoverer);
+        }
     }
 
     /**
      * Starts device discovery over mDNS.
      */
     protected async startMdnsDeviceDiscovery() {
+        if (this.shuttingDown) {
+            return;
+        }
         // create a device discoverer
         const discoverer = new MdnsDeviceDiscoverer(this.options.mdns);
-        // register it
-        this.shellies.registerDiscoverer(discoverer);
+        if (!this.registerDiscoverer(discoverer)) {
+            return;
+        }
+        this.mdnsDiscoverer = discoverer;
 
         // log errors
         discoverer.on('error', (error: Error) => {
@@ -327,11 +503,21 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
             // start the service
             await discoverer.start();
 
+            if (this.shuttingDown) {
+                await discoverer.stop();
+                this.unregisterDiscoverer(discoverer);
+                return;
+            }
+
             this.log.info('mDNS device discovery started');
         } catch (e) {
             this.log.error('Failed to start the mDNS device discovery service:', e instanceof Error ? e.message : e);
             if (e instanceof Error && e.stack) {
                 this.log.debug(e.stack);
+            }
+            this.unregisterDiscoverer(discoverer);
+            if (this.mdnsDiscoverer === discoverer) {
+                this.mdnsDiscoverer = undefined;
             }
         }
     }
@@ -340,6 +526,10 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      * Handles 'add' events from the shellies-ds9 library.
      */
     protected async handleAddedDevice(device: Device) {
+        if (this.shuttingDown) {
+            this.closeDeviceHandler(device);
+            return;
+        }
         // make sure this device hasn't already been added
         if (this.deviceDelegates.has(device.id)) {
             this.log.error(`Device with ID ${device.id} has already been added`);
@@ -349,8 +539,21 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
         // get the device delegate class for this device
         const cls = DeviceDelegate.getDelegate(device.model);
         if (cls === undefined) {
-            // this is an unknown device
+            // a ds9-known model without a plugin delegate (the library never
+            // emits 'add' for models it does not know)
             this.handleUnknownDevice(device.id, device.model);
+            if (this.options.bthome.enable) {
+                const opts = { ...this.options.getDeviceOptions(device.id) };
+                if (!opts.name) {
+                    opts.name = device.system.config?.device?.name;
+                }
+                this.bthomeDelegates.set(device.id, new BTHomeHostDelegate(device, opts, this));
+                // Persist the host so its cached peripheral accessories can
+                // be re-discovered after a restart even without mDNS. The
+                // library only re-adds models it knows, so this applies to
+                // ds9-known models without a plugin delegate.
+                this.deviceCache.storeDevice(device);
+            }
             return;
         }
 
@@ -369,6 +572,12 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
         // store the delegate
         this.deviceDelegates.set(device.id, delegate);
 
+        // Hosted BTHome components are opt-in. The BLU Gateway delegate already
+        // owns its BTHome accessories; other supported hosts get a companion.
+        if (this.options.bthome.enable && cls !== ShellyBluGatewayDelegate) {
+            this.bthomeDelegates.set(device.id, new BTHomeHostDelegate(device, opts, this));
+        }
+
         // store info about this device in cache
         this.deviceCache.storeDevice(device);
     }
@@ -377,9 +586,19 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      * Handles 'remove' events from the shellies-ds9 library.
      */
     protected handleRemovedDevice(device: Device) {
+        if (this.shuttingDown) {
+            return;
+        }
+        this.bthomeDelegates.get(device.id)?.destroy();
+        this.bthomeDelegates.delete(device.id);
+
         // destroy and remove the device delegate
         this.deviceDelegates.get(device.id)?.destroy();
         this.deviceDelegates.delete(device.id);
+
+        // Reconcile any cached peripheral left behind when the host was not
+        // available long enough to create its companion delegate.
+        this.removeAccessory(...this.getBTHomeAccessories(device.id));
 
         // delete this device from cache
         this.deviceCache.delete(device.id);
@@ -389,36 +608,32 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
      * Handles 'exclude' events from the shellies-ds9 library.
      */
     protected handleExcludedDevice(deviceId: DeviceId) {
+        if (this.shuttingDown) {
+            return;
+        }
         this.log.info(`[${deviceId}] Device excluded`);
 
         // delete this device from cache
         this.deviceCache.delete(deviceId);
 
+        this.bthomeDelegates.get(deviceId)?.destroy();
+        this.bthomeDelegates.delete(deviceId);
+
         if (this.deviceDelegates.has(deviceId)) {
             // destroy and remove the device delegate
             this.deviceDelegates.get(deviceId)!.destroy();
             this.deviceDelegates.delete(deviceId);
-        } else {
-            // find all of its platform accessories
-            const pas: PlatformAccessory[] = [];
-
-            for (const pa of this.accessories.values()) {
-                if (pa.context.device?.id === deviceId) {
-                    pas.push(pa);
-                }
-            }
-
-            // unregister them
-            if (pas.length > 0) {
-                this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, pas);
-            }
-
-            this.log.debug(
-                pas.length === 1
-                    ? '1 platform accessory unregistered'
-                    : `${pas.length} platform accessories unregistered`,
-            );
         }
+
+        // Find any remaining platform accessories, including cached BTHome
+        // accessories that had no live manager delegate.
+        const pas = Array.from(this.accessories.values()).filter((pa) => pa.context.device?.id === deviceId);
+        if (pas.length > 0) {
+            this.removeAccessory(...pas);
+        }
+        this.log.debug(
+            pas.length === 1 ? '1 platform accessory unregistered' : `${pas.length} platform accessories unregistered`,
+        );
     }
 
     /**

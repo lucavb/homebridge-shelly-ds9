@@ -12,6 +12,12 @@ describe('PlatformOptions', () => {
             expect(options.websocket.requestTimeout).toBe(10);
             expect(options.websocket.pingInterval).toBe(60);
             expect(options.websocket.reconnectInterval).toEqual([5, 10, 30, 60, 300, 600]);
+            expect(options.bthome.enable).toBe(false);
+        });
+
+        it('allows hosted BTHome discovery to be opted into', () => {
+            const options = new PlatformOptions({ platform: 'ShellyDS9', bthome: { enable: true } });
+            expect(options.bthome.enable).toBe(true);
         });
 
         it('should merge custom mDNS options with defaults', () => {

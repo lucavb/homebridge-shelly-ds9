@@ -38,6 +38,15 @@ export interface WebSocketOptions {
     reconnectInterval: number | number[];
 }
 
+export interface BTHomeOptions {
+    /** Whether hosted BTHome peripherals and the BLU Gateway should be exposed. */
+    enable: boolean;
+}
+
+const DEFAULT_BTHOME_OPTIONS: Readonly<BTHomeOptions> = {
+    enable: false,
+};
+
 const DEFAULT_WEB_SOCKET_OPTIONS: Readonly<WebSocketOptions> = {
     requestTimeout: 10,
     pingInterval: 60,
@@ -153,6 +162,8 @@ const DEFAULT_DEVICE_OPTIONS: Readonly<DeviceOptions> = {
  * Handles configuration options for the platform.
  */
 export class PlatformOptions {
+    /** Options for hosted BTHome peripherals. */
+    readonly bthome: BTHomeOptions;
     /**
      * Options for the mDNS device discoverer.
      */
@@ -170,6 +181,8 @@ export class PlatformOptions {
      * @param config - The platform configuration.
      */
     constructor(config: PlatformConfig) {
+        this.bthome = { ...DEFAULT_BTHOME_OPTIONS, ...config.bthome };
+
         // store the mDNS options (with default values)
         this.mdns = { ...DEFAULT_MDNS_OPTIONS, ...config.mdns };
 

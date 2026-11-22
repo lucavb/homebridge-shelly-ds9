@@ -143,6 +143,50 @@ export class Accessory {
     }
 
     /**
+     * Reconciles services and component bindings without replacing the Homebridge
+     * accessory. Existing ability instances are retained when their source
+     * components are unchanged; obsolete services/listeners are detached.
+     */
+    reconcileAbilities(...abilities: Ability[]) {
+        const current = new Set(this.abilities);
+        const next = new Set(abilities);
+
+        for (const ability of this.abilities) {
+            if (next.has(ability)) {
+                continue;
+            }
+
+            try {
+                ability.active = false;
+                ability.destroy();
+            } catch (e) {
+                this.log.error('Failed to reconcile ability:', e instanceof Error ? e.message : e);
+            }
+        }
+
+        this.abilities.splice(0, this.abilities.length, ...abilities);
+
+        if (this.homebridgeAccessory === null || !this.active) {
+            return;
+        }
+
+        for (const ability of abilities) {
+            if (current.has(ability)) {
+                continue;
+            }
+
+            try {
+                if (ability.historyKind !== undefined && this.recorder !== null) {
+                    ability.setRecorder(this.recorder);
+                }
+                ability.setup(this.homebridgeAccessory, this.platform, this.log);
+            } catch (e) {
+                this.log.error('Failed to setup reconciled ability:', e instanceof Error ? e.message : e);
+            }
+        }
+    }
+
+    /**
      * Updates this accessory based on whether it is active.
      */
     protected update() {

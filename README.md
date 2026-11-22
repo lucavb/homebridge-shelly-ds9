@@ -54,6 +54,7 @@ enabling HomeKit support via mDNS discovery and WebSocket RPC.
 - Shelly Pro 3EM
 - Shelly 3EM-63 Gen3
 - Shelly Plus RGBW PM
+- Shelly BLU Gateway Gen3 (hosted BTHome peripherals)
 
 ### Plus RGBW PM
 
@@ -70,6 +71,29 @@ characteristics use Eve-compatible identifiers; signed net power and exported
 energy use plugin-specific characteristics, whose visibility depends on the
 client. Export is not counted as consumption. The Pro 3EM's optional relay is
 exposed when present. Restart Homebridge after changing the meter profile.
+
+### Hosted BTHome peripherals
+
+To expose paired BTHome peripherals hosted by a supported Shelly device or
+Shelly BLU Gateway Gen3, opt in with `"bthome": { "enable": true }` in the
+platform configuration. Pairing and sensor setup must be done on the Shelly
+host first. The plugin supports temperature, humidity, contact, motion,
+battery percentage and supported button events; other objects are ignored.
+
+The plugin refreshes the host inventory on connection and about every five
+minutes; hosts that currently expose no BTHome peripherals are re-probed about
+every thirty minutes instead, so newly paired devices appear without a restart.
+After a disconnection or restart, a cached reading from a timestamped host
+remains unavailable until a newer timestamp is observed; if the host resets
+its clock backwards, recovery is delayed until wall-clock time catches up.
+Hosts that report no timestamp at all cannot have a recovery watermark, so
+their sensors recover on the next observed reading instead — which means a
+cached value may be republished, since such hosts offer no freshness signal.
+No maximum sensor-age limit is enforced.
+A complete BTHome inventory
+that lists no peripherals is treated as authoritative: all cached
+peripherals of that host are removed, which also clears their HomeKit room
+and automation assignments.
 
 ## Installation
 

@@ -121,7 +121,7 @@ export abstract class Ability {
      */
     constructor(
         protected readonly serviceName?: string,
-        protected readonly serviceSubtype?: string,
+        public readonly serviceSubtype?: string,
     ) {}
 
     /**
@@ -249,7 +249,9 @@ export abstract class Ability {
                 this.platformAccessory.getServiceById(this.serviceClass, this.serviceSubtype) ||
                 this.platformAccessory.addService(this.serviceClass, this.serviceName, this.serviceSubtype);
         } else {
-            service = this.platformAccessory.getService(this.serviceClass);
+            service =
+                this.platformAccessory.getService(this.serviceClass) ||
+                this.platformAccessory.addService(this.serviceClass, '', '');
         }
         return service ?? null;
     }

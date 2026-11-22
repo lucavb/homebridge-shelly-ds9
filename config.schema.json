@@ -51,6 +51,17 @@
                     }
                 }
             },
+            "bthome": {
+                "type": "object",
+                "properties": {
+                    "enable": {
+                        "title": "Enable hosted BTHome peripherals",
+                        "description": "Expose BTHome sensors and supported button events hosted by Shelly devices, including the Shelly BLU Gateway Gen3. This performs Shelly.GetComponents discovery and requires firmware support.",
+                        "type": "boolean",
+                        "default": false
+                    }
+                }
+            },
             "devices": {
                 "type": "array",
                 "items": {
@@ -422,6 +433,12 @@
             "expandable": true,
             "title": "WebSocket connections",
             "items": ["websocket.requestTimeout", "websocket.pingInterval", "websocket.reconnectInterval"]
+        },
+        {
+            "type": "fieldset",
+            "expandable": true,
+            "title": "BTHome peripherals",
+            "items": ["bthome.enable"]
         }
     ]
 }

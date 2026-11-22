@@ -142,9 +142,10 @@ export abstract class DeviceDelegate {
         readonly platform: ShellyPlatform,
     ) {
         this.log = new DeviceLogger(device, options.name, platform.log);
-        this.log.info('Device added');
-
-        this.log.debug(device.rpcHandler.connected ? 'Device is connected' : 'Device is disconnected');
+        if (this.lifecycleLogging()) {
+            this.log.info('Device added');
+            this.log.debug(device.rpcHandler.connected ? 'Device is connected' : 'Device is disconnected');
+        }
 
         this.connected = device.rpcHandler.connected;
 
@@ -155,6 +156,16 @@ export abstract class DeviceDelegate {
 
         this.setup();
         this.setupAddonSensors();
+    }
+
+    /**
+     * Whether to log this delegate's lifecycle (added/connected/disconnected
+     * and per-RPC debug lines). Shadow delegates that run beside a primary
+     * delegate on the same device override this to `false` so each event is
+     * logged once.
+     */
+    protected lifecycleLogging(): boolean {
+        return true;
     }
 
     /**
@@ -376,7 +387,9 @@ export abstract class DeviceDelegate {
      * Handles 'connect' events from the RPC handler.
      */
     protected handleConnect() {
-        this.log.info('Device connected');
+        if (this.lifecycleLogging()) {
+            this.log.info('Device connected');
+        }
         this.connected = true;
     }
 
@@ -384,21 +397,23 @@ export abstract class DeviceDelegate {
      * Handles 'disconnect' events from the RPC handler.
      */
     protected handleDisconnect(code: number, reason: string, reconnectIn: number | null) {
-        const details = reason.length > 0 ? 'reason: ' + reason : 'code: ' + code;
-        this.log.warn((this.connected ? 'Device disconnected' : 'Connection failed') + ' (' + details + ')');
+        if (this.lifecycleLogging()) {
+            const details = reason.length > 0 ? 'reason: ' + reason : 'code: ' + code;
+            this.log.warn((this.connected ? 'Device disconnected' : 'Connection failed') + ' (' + details + ')');
 
-        if (reconnectIn !== null) {
-            let msg = 'Reconnecting in ';
+            if (reconnectIn !== null) {
+                let msg = 'Reconnecting in ';
 
-            if (reconnectIn < 60 * 1000) {
-                msg += Math.floor(reconnectIn / 1000) + ' second(s)';
-            } else if (reconnectIn < 60 * 60 * 1000) {
-                msg += Math.floor(reconnectIn / (60 * 1000)) + ' minute(s)';
-            } else {
-                msg += Math.floor(reconnectIn / (60 * 60 * 1000)) + ' hour(s)';
+                if (reconnectIn < 60 * 1000) {
+                    msg += Math.floor(reconnectIn / 1000) + ' second(s)';
+                } else if (reconnectIn < 60 * 60 * 1000) {
+                    msg += Math.floor(reconnectIn / (60 * 1000)) + ' minute(s)';
+                } else {
+                    msg += Math.floor(reconnectIn / (60 * 60 * 1000)) + ' hour(s)';
+                }
+
+                this.log.info(msg);
             }
-
-            this.log.info(msg);
         }
 
         this.connected = false;
@@ -408,7 +423,9 @@ export abstract class DeviceDelegate {
      * Handles 'request' events from the RPC handler.
      */
     protected handleRequest(method: string) {
-        this.log.debug('WebSocket:', method);
+        if (this.lifecycleLogging()) {
+            this.log.debug('WebSocket:', method);
+        }
     }
 
     /**
