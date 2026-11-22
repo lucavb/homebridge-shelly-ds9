@@ -6,11 +6,13 @@ import type { Ability } from '../abilities/base.ts';
 import { AccessoryInformationAbility } from '../abilities/accessory-information.ts';
 import { BTHomeButtonAbility } from '../abilities/bthome-button.ts';
 import { BTHomeSensorAbility } from '../abilities/bthome-sensor.ts';
+import { BluTrvAbility, bluTrvServiceSubtype, parseBluTrvId } from '../abilities/blu-trv.ts';
 import { ServiceLabelAbility } from '../abilities/service-label.ts';
 import { DeviceDelegate } from './base.ts';
 import type { Device } from '@lucavb/shellies-ds9';
 import {
     getBTHomeSensorKind,
+    getBTHomeLastUpdatedTimestamp,
     getKnownBTHomeButtonIndexes,
     groupBTHomeComponents,
     parseBTHomeAddress,
@@ -34,9 +36,11 @@ interface Binding {
 interface ManagedPeripheral {
     accessory: BTHomeAccessory;
     bindings: Map<string, Binding>;
+    trvs: Map<string, TrvBinding>;
 }
 
 interface DesiredPeripheral {
+    address: string;
     peripheral: BTHomePeripheral;
     /**
      * Known button indexes, or `undefined` when the peripheral's button
@@ -45,6 +49,17 @@ interface DesiredPeripheral {
      * or remove buttons.
      */
     buttonIndexes: number[] | undefined;
+    trvs: TrvComponent[];
+}
+
+interface TrvComponent {
+    component: DynamicComponent;
+    id: number;
+    address: string;
+}
+
+interface TrvBinding extends TrvComponent {
+    ability: BluTrvAbility;
 }
 
 interface DelegateState {
@@ -100,7 +115,7 @@ class BTHomeAccessory extends Accessory {
     /** Stable ServiceLabel instance so the service survives ability reconciles. */
     readonly serviceLabelAbility = new ServiceLabelAbility('arabicNumerals');
 
-    reconcileBTHomeAbilities(...abilities: Ability[]) {
+    reconcileHostedPeripheralAbilities(...abilities: Ability[]) {
         this.reconcileAbilities(this.informationAbility, ...abilities);
     }
 
@@ -116,7 +131,10 @@ class BTHomeAccessory extends Accessory {
             return;
         }
         for (const service of [...accessory.services]) {
-            if (service.subtype?.startsWith('bthome-') && !validSubtypes.has(service.subtype)) {
+            if (
+                (service.subtype?.startsWith('bthome-') || service.subtype?.startsWith('blu-trv-')) &&
+                !validSubtypes.has(service.subtype)
+            ) {
                 accessory.removeService(service);
             }
         }
@@ -124,7 +142,7 @@ class BTHomeAccessory extends Accessory {
 }
 
 /**
- * Discovers and manages hosted BTHome peripherals for one Shelly RPC device.
+ * Discovers and manages hosted BTHome peripherals and BLU TRVs for one Shelly RPC device.
  * ds9 1.9.0 has no inventory-change event, so this refreshes on connect and
  * periodically. Incomplete metadata or failed capability queries are non-authoritative.
  */
@@ -254,7 +272,7 @@ export class BTHomeHostDelegate extends DeviceDelegate {
             }
             if (component instanceof DynamicComponent) {
                 components.push(component);
-            } else if (/^bthome(?:device|sensor):\d+$/i.test(key)) {
+            } else if (/^(?:bthome(?:device|sensor)|blutrv)(?::|$)/i.test(key)) {
                 complete = false;
             }
         }
@@ -270,8 +288,11 @@ export class BTHomeHostDelegate extends DeviceDelegate {
             this.scheduleRefresh(EMPTY_INVENTORY_REPROBE_MS);
         }
 
-        // Any BTHome component whose identity/config tuple is missing makes this
-        // inventory ambiguous; do not delete or mutate accessories from it.
+        const trvsByAddress = new Map<string, TrvComponent[]>();
+        const trvIds = new Set<number>();
+
+        // Any hosted component whose identity/config tuple is missing makes
+        // this inventory ambiguous; do not delete or mutate accessories from it.
         for (const component of components) {
             if (/^bthomedevice:\d+$/i.test(component.key)) {
                 if (parseBTHomeAddress(component.config?.addr) === undefined) {
@@ -281,10 +302,36 @@ export class BTHomeHostDelegate extends DeviceDelegate {
                 if (parseBTHomeSensorConfig(component) === undefined) {
                     complete = false;
                 }
+            } else if (/^blutrv(?::|$)/i.test(component.key)) {
+                const id = parseBluTrvId(component.key);
+                const address = parseBTHomeAddress(component.config?.addr);
+                if (id === undefined || address === undefined || trvIds.has(id)) {
+                    complete = false;
+                    continue;
+                }
+                trvIds.add(id);
+
+                // An explicit unpaired status removes this TRV from the desired
+                // set. Its address is still validated so malformed inventory
+                // cannot cause stale-service deletion.
+                if (component.status.paired === false) {
+                    continue;
+                }
+                const trvs = trvsByAddress.get(address) ?? [];
+                trvs.push({ component, id, address });
+                trvsByAddress.set(address, trvs);
             }
         }
+        if (trvsByAddress.size > 0 && !this.getBluGateway()) {
+            complete = false;
+        }
         if (!complete) {
-            this.log.debug('Keeping BTHome accessories because component metadata is incomplete');
+            this.log.debug('Keeping hosted accessories because component metadata is incomplete');
+            return;
+        }
+
+        if (Array.from(trvsByAddress.values()).some((trvs) => trvs.length > 1)) {
+            this.log.debug('Keeping hosted accessories because a BLE address has ambiguous TRV components');
             return;
         }
 
@@ -344,7 +391,23 @@ export class BTHomeHostDelegate extends DeviceDelegate {
                 capabilitiesComplete = false;
             }
 
-            desired.set(peripheral.address, { peripheral, buttonIndexes });
+            desired.set(peripheral.address, {
+                address: peripheral.address,
+                peripheral,
+                buttonIndexes,
+                trvs: trvsByAddress.get(peripheral.address) ?? [],
+            });
+        }
+
+        for (const [address, trvs] of trvsByAddress) {
+            if (!desired.has(address)) {
+                desired.set(address, {
+                    address,
+                    peripheral: { address, devices: [], sensors: [] },
+                    buttonIndexes: [],
+                    trvs,
+                });
+            }
         }
 
         if (state.detached) {
@@ -357,7 +420,13 @@ export class BTHomeHostDelegate extends DeviceDelegate {
         // capabilities could not be queried still reconciles its sensors/TRVs,
         // and other peripherals reconcile normally.
         for (const [address, entry] of desired) {
-            this.reconcilePeripheral(address, entry, state, generation);
+            try {
+                this.reconcilePeripheral(address, entry, state, generation);
+            } catch (error) {
+                // One peripheral (e.g. a TRV rebind racing a concurrent
+                // rediscovery) must not abort the rest of the cycle.
+                this.log.warn(`Failed to reconcile hosted BTHome peripheral ${address}:`, error);
+            }
         }
 
         // A complete, parsed inventory is authoritative for cached addresses.
@@ -397,6 +466,7 @@ export class BTHomeHostDelegate extends DeviceDelegate {
         const accessoryId = `bthome-${address}`;
         const previous = state.peripherals.get(address);
         const bindings = new Map<string, Binding>();
+        const trvs = new Map<string, TrvBinding>();
 
         for (const { component, config } of entry.peripheral.sensors) {
             const kind = getBTHomeSensorKind(config.objectId);
@@ -448,13 +518,46 @@ export class BTHomeHostDelegate extends DeviceDelegate {
             retainedButtonSubtypes = new Set(this.getCachedButtonSubtypes(address));
         }
 
-        const abilities: Ability[] = Array.from(bindings.values(), ({ ability }) => ability);
+        if (deviceComponent === undefined && previous !== undefined && previous.bindings.size > 0) {
+            // A previously managed peripheral that lost its parent device
+            // component while child metadata remains (its TRVs, via a
+            // TRV-only inventory entry) is not an unpair proof: keep its
+            // existing bindings so their services survive this cycle.
+            for (const [bindingKey, binding] of previous.bindings) {
+                if (!bindings.has(bindingKey)) {
+                    bindings.set(bindingKey, binding);
+                }
+            }
+        }
+
+        // Any TRV-bearing entry implies gateway support: refreshBTHomeInventory
+        // refuses to reconcile an inventory whose TRVs sit on a host without
+        // callTrv, so the non-null assertions below hold by construction.
+        const gateway = this.getBluGateway();
+        for (const trv of entry.trvs) {
+            const old = previous?.trvs.get(trv.address);
+            let ability: BluTrvAbility;
+            if (old) {
+                ability = old.ability;
+                if (old.component !== trv.component || old.id !== trv.id) {
+                    ability.rebind(trv.component, gateway!, trv.id);
+                }
+            } else {
+                ability = new BluTrvAbility(trv.component, gateway!, trv.id, trv.address);
+            }
+            trvs.set(trv.address, { ...trv, ability });
+        }
+
+        const abilities: Ability[] = [
+            ...Array.from(bindings.values(), ({ ability }) => ability),
+            ...Array.from(trvs.values(), ({ ability }) => ability),
+        ];
         // Grouped BTHome buttons expect a ServiceLabel service, mirroring how
         // the shelly-plus-i4 delegate wires one up.
         if (abilities.some((ability) => ability instanceof BTHomeButtonAbility)) {
             abilities.push(previous?.accessory.serviceLabelAbility ?? new ServiceLabelAbility('arabicNumerals'));
         }
-        const validSubtypes = this.getValidServiceSubtypes(bindings);
+        const validSubtypes = this.getValidServiceSubtypes(bindings, trvs);
         if (retainedButtonSubtypes) {
             for (const subtype of retainedButtonSubtypes) {
                 validSubtypes.add(subtype);
@@ -464,7 +567,7 @@ export class BTHomeHostDelegate extends DeviceDelegate {
 
         if (previous) {
             accessory = previous.accessory;
-            accessory.reconcileBTHomeAbilities(...abilities);
+            accessory.reconcileHostedPeripheralAbilities(...abilities);
             accessory.removeStaleServices(validSubtypes);
         } else {
             const cached = this.platform.getBTHomeAccessories(this.device.id).some((candidate) => {
@@ -480,13 +583,17 @@ export class BTHomeHostDelegate extends DeviceDelegate {
             }
 
             const deviceName = this.options.name || this.device.modelName;
-            const peripheralName = this.getPeripheralName(entry.peripheral) || address;
+            const peripheralName = this.getPeripheralName(entry) || address;
+            const fallbackModel =
+                entry.trvs.length > 0 && entry.peripheral.sensors.length === 0 && entry.peripheral.devices.length === 0
+                    ? 'BLU TRV'
+                    : 'BTHome sensor';
             accessory = new BTHomeAccessory(
                 accessoryId,
                 // Peripherals get their own identity instead of the host's:
                 // SerialNumber is the BLE address, Model the peripheral name.
                 {
-                    modelName: peripheralName === address ? 'BTHome sensor' : peripheralName,
+                    modelName: peripheralName === address ? fallbackModel : peripheralName,
                     macAddress: address,
                     firmware: { version: '' },
                 } as unknown as Device,
@@ -501,7 +608,7 @@ export class BTHomeHostDelegate extends DeviceDelegate {
             this.accessories.set(accessoryId, accessory);
         }
 
-        state.peripherals.set(address, { accessory, bindings });
+        state.peripherals.set(address, { accessory, bindings, trvs });
 
         if (!this.connected) {
             for (const binding of bindings.values()) {
@@ -547,7 +654,12 @@ export class BTHomeHostDelegate extends DeviceDelegate {
                             return;
                         }
                         if (Object.hasOwn(status, 'value')) {
-                            ability.observeStatus(status.value, status.last_update_ts);
+                            const timestamp = getBTHomeLastUpdatedTimestamp(status);
+                            if (timestamp === null) {
+                                ability.markUnavailable();
+                            } else {
+                                ability.observeStatus(status.value, timestamp);
+                            }
                         } else {
                             ability.markUnavailable();
                         }
@@ -588,7 +700,7 @@ export class BTHomeHostDelegate extends DeviceDelegate {
         }
         return this.device.getComponent(binding.component.key) === binding.component;
     }
-    private getValidServiceSubtypes(bindings: Map<string, Binding>): Set<string> {
+    private getValidServiceSubtypes(bindings: Map<string, Binding>, trvs: Map<string, TrvBinding>): Set<string> {
         // Collected from the abilities themselves so the stale-service sweep
         // can never disagree with the services those abilities manage.
         const valid = new Set<string>();
@@ -596,6 +708,9 @@ export class BTHomeHostDelegate extends DeviceDelegate {
             if (ability.serviceSubtype !== undefined) {
                 valid.add(ability.serviceSubtype);
             }
+        }
+        for (const address of trvs.keys()) {
+            valid.add(bluTrvServiceSubtype(address));
         }
         return valid;
     }
@@ -623,14 +738,24 @@ export class BTHomeHostDelegate extends DeviceDelegate {
         return subtypes;
     }
 
-    private getPeripheralName(peripheral: BTHomePeripheral): string | undefined {
-        for (const component of [...peripheral.devices, ...peripheral.sensors.map(({ component }) => component)]) {
+    private getPeripheralName(entry: DesiredPeripheral): string | undefined {
+        const components = [
+            ...entry.peripheral.devices,
+            ...entry.peripheral.sensors.map(({ component }) => component),
+            ...entry.trvs.map(({ component }) => component),
+        ];
+        for (const component of components) {
             const name = component.config?.name;
             if (typeof name === 'string' && name.trim().length > 0) {
                 return name.trim();
             }
         }
         return undefined;
+    }
+
+    private getBluGateway(): ShellyBluGatewayGen3 | undefined {
+        const device = this.device as Device & { callTrv?: ShellyBluGatewayGen3['callTrv'] };
+        return typeof device.callTrv === 'function' ? (device as ShellyBluGatewayGen3) : undefined;
     }
 
     private removePeripheral(address: string, state: DelegateState) {

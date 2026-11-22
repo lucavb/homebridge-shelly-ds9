@@ -16,6 +16,7 @@ import { resolveStoragePath } from './utils/storage-path.ts';
 import { bthomeSensorKindDescriptors, parseBTHomeSensorKind } from './utils/bthome.ts';
 import { DeviceDelegate } from './device-delegates/index.ts';
 import { BTHomeHostDelegate, ShellyBluGatewayDelegate } from './device-delegates/shelly-blu-gateway.ts';
+import { BLU_TRV_OBSERVED_CHARACTERISTICS } from './abilities/blu-trv.ts';
 import { PlatformOptions } from './config.ts';
 
 type AccessoryUuid = string;
@@ -246,6 +247,12 @@ export class ShellyPlatform implements DynamicPlatformPlugin {
             const unavailable = (device.bthomeUnavailableServices as Record<string, unknown> | undefined) ?? {};
             for (const service of [...accessory.services]) {
                 const subtype = service.subtype;
+                if (service.UUID === this.api.hap.Service.Thermostat.UUID && service.subtype?.startsWith('blu-trv-')) {
+                    for (const characteristicName of BLU_TRV_OBSERVED_CHARACTERISTICS) {
+                        service.getCharacteristic(this.api.hap.Characteristic[characteristicName]).updateValue(error);
+                    }
+                    continue;
+                }
                 if (!subtype?.startsWith('bthome-')) {
                     continue;
                 }

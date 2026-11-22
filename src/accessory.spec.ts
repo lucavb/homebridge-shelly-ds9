@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { Categories } from 'homebridge';
-import type { Cover, Device, Humidity, Input, Light, Switch, Temperature } from '@lucavb/shellies-ds9';
+import type {
+    Cover,
+    Device,
+    DynamicComponent,
+    Humidity,
+    Input,
+    Light,
+    ShellyBluGatewayGen3,
+    Switch,
+    Temperature,
+} from '@lucavb/shellies-ds9';
 
 import {
     AccessoryInformationAbility,
@@ -13,6 +23,7 @@ import {
     SwitchAbility,
     TemperatureSensorAbility,
 } from './abilities/index.ts';
+import { BluTrvAbility } from './abilities/blu-trv.ts';
 import { resolveAccessoryCategory } from './accessory.ts';
 
 const mockSwitch = { id: 0 } as Switch;
@@ -22,6 +33,8 @@ const mockInput = { id: 0 } as Input;
 const mockTemperature = { id: 100 } as Temperature;
 const mockHumidity = { id: 100 } as Humidity;
 const mockDevice = { id: 'shellyplus1-abc123' } as Device;
+const mockDynamicComponent = { key: 'blutrv:200', config: { addr: '3c:2e:f5:71:d5:2a' } } as DynamicComponent;
+const mockBluGateway = {} as ShellyBluGatewayGen3;
 
 describe('resolveAccessoryCategory()', () => {
     it('should return SWITCH for an active SwitchAbility', () => {
@@ -130,6 +143,15 @@ describe('resolveAccessoryCategory()', () => {
         ];
 
         expect(resolveAccessoryCategory(abilities)).toBe(Categories.PROGRAMMABLE_SWITCH);
+    });
+
+    it('prioritizes a thermostat over hosted sensor services on a shared BLE accessory', () => {
+        const abilities = [
+            new TemperatureSensorAbility(mockTemperature).setActive(true),
+            new BluTrvAbility(mockDynamicComponent, mockBluGateway, 200, '3c:2e:f5:71:d5:2a').setActive(true),
+        ];
+
+        expect(resolveAccessoryCategory(abilities)).toBe(Categories.THERMOSTAT);
     });
 
     it('pins the tier order: an inactive ability in a higher tier does not shadow a lower tier', () => {

@@ -28,6 +28,7 @@ const CATEGORY_TIERS: Categories[] = [
     Categories.WINDOW,
     Categories.WINDOW_COVERING,
     Categories.PROGRAMMABLE_SWITCH,
+    Categories.THERMOSTAT,
     Categories.SENSOR,
 ];
 

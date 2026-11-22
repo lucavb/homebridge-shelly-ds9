@@ -79,6 +79,9 @@ Shelly BLU Gateway Gen3, opt in with `"bthome": { "enable": true }` in the
 platform configuration. Pairing and sensor setup must be done on the Shelly
 host first. The plugin supports temperature, humidity, contact, motion,
 battery percentage and supported button events; other objects are ignored.
+Paired Shelly BLU TRVs hosted by a BLU Gateway Gen3 are exposed as heat-only
+HomeKit thermostats with target-temperature control. The displayed heating
+state represents valve demand, not confirmation that the boiler is running.
 
 The plugin refreshes the host inventory on connection and about every five
 minutes; hosts that currently expose no BTHome peripherals are re-probed about
@@ -90,7 +93,8 @@ Hosts that report no timestamp at all cannot have a recovery watermark, so
 their sensors recover on the next observed reading instead — which means a
 cached value may be republished, since such hosts offer no freshness signal.
 No maximum sensor-age limit is enforced.
-A complete BTHome inventory
+TRVs likewise remain unavailable after startup or disconnection until the
+gateway reports a new peripheral observation. A complete BTHome inventory
 that lists no peripherals is treated as authoritative: all cached
 peripherals of that host are removed, which also clears their HomeKit room
 and automation assignments.

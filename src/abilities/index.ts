@@ -16,3 +16,4 @@ export * from './energy-meter.ts';
 export * from './rgb-light.ts';
 export * from './bthome-sensor.ts';
 export * from './bthome-button.ts';
+export * from './blu-trv.ts';

@@ -9,6 +9,7 @@ import type { PlatformAccessory } from 'homebridge';
 import { BTHomeButtonAbility } from '../abilities/bthome-button.ts';
 import { BTHomeSensorAbility } from '../abilities/bthome-sensor.ts';
 import { ServiceLabelAbility } from '../abilities/service-label.ts';
+import { BluTrvAbility } from '../abilities/blu-trv.ts';
 import { DeviceDelegate } from './base.ts';
 import { BTHomeHostDelegate, ShellyBluGatewayDelegate } from './shelly-blu-gateway.ts';
 import { ShellyPlatform } from '../platform.ts';
@@ -17,6 +18,7 @@ import { bthomeSensorKindDescriptors } from '../utils/bthome.ts';
 import type { BTHomeSensorKind } from '../utils/bthome.ts';
 
 const ADDRESS = '3c:2e:f5:71:d5:2a';
+const TRV_SUBTYPE = 'blu-trv-3c2ef571d52a';
 
 class MockPlatformAccessory {
     context: Record<string, unknown> = {};
@@ -58,23 +60,38 @@ function makeFixture(options?: {
     cachedAccessory?: PlatformAccessory;
     statusResponse?: (id: number) => Promise<unknown>;
     bthomeEnabled?: boolean;
+    realGateway?: boolean;
 }) {
     const inventory = options?.inventory ?? [];
     let currentInventory = inventory;
     let refreshError = false;
-    let refreshComponents: () => Promise<void> = async () => undefined;
+    let refreshComponents = options?.refresh;
     let knownObjects = options?.knownObjects ?? { objects: [] };
     let knownObjectsError = options?.knownObjectsError ?? false;
+    const getComponentsResponse = () =>
+        Promise.resolve({
+            components: currentInventory.map((component) => ({
+                key: component.key,
+                status: component.status,
+                config: component.config,
+            })),
+            total: currentInventory.length,
+            cfg_rev: 1,
+        });
     const statusValues = new Map<number, { value: unknown; last_update_ts: unknown }>([
         [201, { value: 22.5, last_update_ts: 1000 }],
     ]);
     const statusResponses = new Map<number, () => Promise<unknown>>();
+    const callTrv = vi.fn().mockResolvedValue(undefined);
     if (options?.statusResponse) {
         statusResponses.set(201, () => options.statusResponse!(201));
     }
     const rpcHandler = Object.assign(new EventEmitter(), {
         connected: true,
         request: vi.fn((method: string, params?: Record<string, unknown>) => {
+            if (method === 'Shelly.GetComponents') {
+                return getComponentsResponse();
+            }
             if (method === 'BTHomeDevice.GetKnownObjects') {
                 return knownObjectsError
                     ? Promise.reject(new Error('capability request failed'))
@@ -88,31 +105,42 @@ function makeFixture(options?: {
             return Promise.reject(new Error(`Unexpected RPC ${method}`));
         }),
     });
-    const device = Object.assign(new EventEmitter(), {
+    const fakeDevice = Object.assign(new EventEmitter(), {
         id: 'shellyplus1-test',
         modelName: 'Shelly Plus 1',
         macAddress: 'aa:bb:cc:dd:ee:ff',
         firmware: { version: '1.0.0' },
         system: { config: { device: { name: 'Test Host' } } },
         rpcHandler,
-        refreshBTHomeComponents:
-            options?.refresh ??
-            (async () => {
+        refreshBTHomeComponents: async () => {
+            if (refreshComponents) {
+                await refreshComponents();
+            } else {
                 if (refreshError) {
                     throw new Error('inventory request failed');
                 }
-                await refreshComponents();
-            }),
+            }
+        },
+        callTrv,
+        getComponent: (key: string) => currentInventory.find((component) => component.key === key),
         [Symbol.iterator]: function* () {
             for (const component of currentInventory) {
                 yield [component.key, component] as [string, DynamicComponent];
             }
         },
         getComponent: (key: string) => currentInventory.find((component) => component.key === key),
-    }) as unknown as Device;
+    });
+    const device = (options?.realGateway
+        ? new ShellyBluGatewayGen3(
+              { id: 'shellyplus1-test', mac: 'aa:bb:cc:dd:ee:ff', model: 'S3GW-1DBT001', ver: '1.0.0' },
+              rpcHandler as never,
+          )
+        : fakeDevice) as unknown as Device;
     const bindComponents = (components: DynamicComponent[]) => {
         for (const component of components) {
-            (component as unknown as { device: Device }).device = device;
+            if (!options?.realGateway) {
+                (component as unknown as { device: Device }).device = device;
+            }
         }
     };
     bindComponents(currentInventory);
@@ -179,6 +207,7 @@ function makeFixture(options?: {
         registered,
         removed,
         refresh,
+        callTrv,
         setInventory(value: DynamicComponent[]) {
             currentInventory = value;
             bindComponents(value);
@@ -287,6 +316,32 @@ function makeHandleAddedPlatform(storeDevice = vi.fn()) {
     } as unknown as ShellyPlatformType);
 }
 
+function makeTrvComponent(
+    key = 'blutrv:200',
+    config: Record<string, unknown> = { addr: ADDRESS },
+    status: Record<string, unknown> = {
+        current_C: 20,
+        target_C: 21,
+        pos: 30,
+        errors: [],
+        paired: true,
+        rsv: 1,
+        packet_id: 1,
+        last_updated_ts: 1000,
+    },
+): DynamicComponent {
+    const id = Number(key.split(':')[1]);
+    const component = new DynamicComponent({} as never, {
+        key,
+        rpcName: 'BluTrv',
+        kind: 'unknown',
+        id,
+    });
+    component.config = config;
+    component.update(status);
+    return component;
+}
+
 afterEach(() => {
     vi.useRealTimers();
 });
@@ -300,6 +355,238 @@ describe('ShellyBluGatewayDelegate', () => {
         expect(ShellyBluGatewayDelegate.prototype).toBeInstanceOf(BTHomeHostDelegate);
     });
 
+    it('exposes a TRV-only inventory as one address-stable thermostat and routes writes to its gateway ID', async () => {
+        vi.useFakeTimers();
+        const trv = makeTrvComponent();
+        const fixture = makeFixture({ inventory: [trv] });
+
+        await fixture.refresh();
+
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        expect(accessory).toBeDefined();
+        expect(fixture.platform.addAccessory).toHaveBeenCalledTimes(1);
+        expect(accessory.platformAccessory?.category).toBe(Categories.THERMOSTAT);
+        expect(accessory.abilities).toHaveLength(2);
+        const ability = accessory.abilities.find((candidate) => candidate instanceof BluTrvAbility)! as BluTrvAbility;
+        expect(ability.component).toBe(trv);
+        expect(ability.gatewayTrvId).toBe(200);
+
+        const service = accessory.platformAccessory!.getServiceById(Service.Thermostat, TRV_SUBTYPE)!;
+        const currentState = service.getCharacteristic(Characteristic.CurrentHeatingCoolingState);
+        expect(currentState.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+
+        trv.update({ last_updated_ts: 1001 });
+        await Promise.resolve();
+        expect(currentState.value).toBe(Characteristic.CurrentHeatingCoolingState.HEAT);
+        const setTarget = (
+            ability as unknown as { targetTemperatureSetHandler(value: number): Promise<void> }
+        ).targetTemperatureSetHandler.bind(ability);
+        await setTarget(24);
+        expect(fixture.callTrv).toHaveBeenCalledWith(200, 'TRV.SetTarget', { id: 0, target_C: 24 });
+
+        fixture.delegate.detach();
+    });
+
+    it('reuses a cached thermostat identity but keeps persisted values unavailable until a fresh observation', async () => {
+        vi.useFakeTimers();
+        const cached = new MockPlatformAccessory(
+            'Cached TRV',
+            uuid.generate(`${ADDRESS}-bthome-${ADDRESS}`),
+            Categories.OTHER,
+        );
+        cached.context.device = { id: 'shellyplus1-test', bthomeAddress: ADDRESS };
+        const cachedService = cached.addService(Service.Thermostat, 'BLU TRV', TRV_SUBTYPE);
+        const currentState = cachedService.getCharacteristic(Characteristic.CurrentHeatingCoolingState);
+        const currentTemperature = cachedService.getCharacteristic(Characteristic.CurrentTemperature);
+        const targetTemperature = cachedService.getCharacteristic(Characteristic.TargetTemperature);
+        currentState.updateValue(Characteristic.CurrentHeatingCoolingState.HEAT);
+        currentTemperature.updateValue(20);
+        targetTemperature.updateValue(22);
+
+        const trv = makeTrvComponent();
+        const fixture = makeFixture({ inventory: [trv], cachedAccessory: cached as unknown as PlatformAccessory });
+        fixture.platform.markBTHomeAccessoriesUnavailable('shellyplus1-test');
+        expect(currentState.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+
+        await fixture.refresh();
+
+        const managed = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        expect(managed.platformAccessory).toBe(cached);
+        expect(cached.services.filter((service) => service.UUID === Service.Thermostat.UUID)).toHaveLength(1);
+        expect(currentState.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(currentTemperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(targetTemperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(fixture.platform.addAccessory).toHaveBeenCalledTimes(1);
+
+        fixture.delegate.detach();
+    });
+
+    it('preserves the service across gateway ID reassignment and rejects old queued commands', async () => {
+        vi.useFakeTimers();
+        const trv = makeTrvComponent();
+        const fixture = makeFixture({ inventory: [trv] });
+        await fixture.refresh();
+
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const platformAccessory = accessory.platformAccessory!;
+        const service = platformAccessory.getServiceById(Service.Thermostat, TRV_SUBTYPE)!;
+        const oldAbility = accessory.abilities.find(
+            (candidate) => candidate instanceof BluTrvAbility,
+        )! as BluTrvAbility;
+        trv.update({ last_updated_ts: 1001 });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        let finishOldRpc!: () => void;
+        fixture.callTrv.mockImplementationOnce(() => new Promise<void>((resolve) => (finishOldRpc = () => resolve())));
+        const oldSetter = (
+            oldAbility as unknown as { targetTemperatureSetHandler(value: number): Promise<void> }
+        ).targetTemperatureSetHandler.bind(oldAbility);
+        const pending = oldSetter(22);
+        const oldQueued = oldSetter(23);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(fixture.callTrv).toHaveBeenCalledWith(200, 'TRV.SetTarget', { id: 0, target_C: 22 });
+
+        const replacement = makeTrvComponent('blutrv:201');
+        fixture.setInventory([replacement]);
+        await fixture.refresh();
+
+        const rebound = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const reboundAbility = rebound.abilities.find(
+            (candidate) => candidate instanceof BluTrvAbility,
+        )! as BluTrvAbility;
+        expect(rebound).toBe(accessory);
+        expect(rebound.platformAccessory).toBe(platformAccessory);
+        expect(reboundAbility).toBe(oldAbility);
+        expect(reboundAbility.component).toBe(replacement);
+        expect(reboundAbility.gatewayTrvId).toBe(201);
+        expect(platformAccessory.getServiceById(Service.Thermostat, TRV_SUBTYPE)).toBe(service);
+        expect(fixture.removed).toHaveLength(0);
+        expect(fixture.platform.addAccessory).toHaveBeenCalledTimes(1);
+
+        replacement.update({ last_updated_ts: 1001 });
+        await Promise.resolve();
+        await Promise.resolve();
+        const newSetter = (
+            reboundAbility as unknown as { targetTemperatureSetHandler(value: number): Promise<void> }
+        ).targetTemperatureSetHandler.bind(reboundAbility);
+        const currentWrite = newSetter(24);
+        finishOldRpc();
+        await expect(pending).rejects.toMatchObject({
+            hapStatus: HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+        });
+        await expect(oldQueued).rejects.toMatchObject({
+            hapStatus: HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+        });
+        await expect(currentWrite).resolves.toBeUndefined();
+
+        expect(fixture.callTrv).toHaveBeenCalledTimes(2);
+        expect(fixture.callTrv).toHaveBeenNthCalledWith(2, 201, 'TRV.SetTarget', { id: 0, target_C: 24 });
+        fixture.delegate.detach();
+    });
+
+    it('merges a TRV with BTHome at the same verified address and reconciles replacement and unpair in place', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:202', { addr: ADDRESS });
+        const sensor = makeComponent('bthomesensor:201', { addr: ADDRESS, obj_id: 2, idx: 0 }, { value: 20 });
+        const trv = makeTrvComponent();
+        const fixture = makeFixture({ inventory: [deviceComponent, sensor, trv] });
+
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const platformAccessory = accessory.platformAccessory!;
+        expect(platformAccessory.services.filter((service) => service.UUID === Service.Thermostat.UUID)).toHaveLength(
+            1,
+        );
+        expect(platformAccessory.category).toBe(Categories.THERMOSTAT);
+
+        const replacement = makeTrvComponent('blutrv:200', { addr: ADDRESS, name: 'Replaced TRV' });
+        fixture.setInventory([deviceComponent, sensor, replacement]);
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(accessory.platformAccessory).toBe(platformAccessory);
+        expect(platformAccessory.services.filter((service) => service.UUID === Service.Thermostat.UUID)).toHaveLength(
+            1,
+        );
+        expect(
+            accessory.abilities.some(
+                (candidate) => candidate instanceof BluTrvAbility && candidate.component === replacement,
+            ),
+        ).toBe(true);
+        expect(fixture.platform.addAccessory).toHaveBeenCalledTimes(1);
+
+        const ambiguous = makeTrvComponent('blutrv:202', { addr: ADDRESS });
+        fixture.setInventory([deviceComponent, sensor, replacement, ambiguous]);
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(fixture.removed).toHaveLength(0);
+
+        const unpaired = makeTrvComponent(
+            'blutrv:200',
+            { addr: ADDRESS },
+            {
+                ...replacement.status,
+                paired: false,
+            },
+        );
+        fixture.setInventory([deviceComponent, sensor, unpaired]);
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(platformAccessory.getServiceById(Service.Thermostat, TRV_SUBTYPE)).toBeUndefined();
+        expect(fixture.removed).toHaveLength(0);
+        fixture.delegate.detach();
+    });
+
+    it('does not expose a TRV with a missing address or duplicate address identities', async () => {
+        vi.useFakeTimers();
+        const missing = makeTrvComponent('blutrv:200', {});
+        const fixture = makeFixture({ inventory: [missing] });
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].size).toBe(0);
+
+        const one = makeTrvComponent('blutrv:200');
+        const two = makeTrvComponent('blutrv:201');
+        fixture.setInventory([one, two]);
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].size).toBe(0);
+        expect(fixture.platform.addAccessory).not.toHaveBeenCalled();
+        fixture.delegate.detach();
+    });
+
+    it('keeps TRV services on incomplete inventory and removes them on authoritative unpair/removal', async () => {
+        vi.useFakeTimers();
+        const trv = makeTrvComponent();
+        const fixture = makeFixture({ inventory: [trv] });
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const platformAccessory = accessory.platformAccessory!;
+        expect(platformAccessory.getServiceById(Service.Thermostat, TRV_SUBTYPE)).toBeDefined();
+
+        fixture.setInventory([makeTrvComponent('blutrv:200', {})]);
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(platformAccessory.getServiceById(Service.Thermostat, TRV_SUBTYPE)).toBeDefined();
+        expect(fixture.removed).toHaveLength(0);
+
+        fixture.setInventory([makeTrvComponent('blutrv:200', { addr: ADDRESS }, { ...trv.status, paired: false })]);
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].has(`bthome-${ADDRESS}`)).toBe(false);
+        expect(fixture.removed).toHaveLength(1);
+        fixture.delegate.detach();
+    });
+
+    it('keeps TRV exposure disabled when the shared BTHome feature is disabled', async () => {
+        vi.useFakeTimers();
+        const fixture = makeFixture({ inventory: [makeTrvComponent()], bthomeEnabled: false });
+
+        await fixture.refresh();
+
+        expect(fixture.delegate['accessories'].size).toBe(0);
+        expect(fixture.platform.addAccessory).not.toHaveBeenCalled();
+        fixture.delegate.detach();
+    });
+
     it('invalidates cached sensor readings before an unavailable host can reconnect', () => {
         const cached = new MockPlatformAccessory('Cached', 'cached-bthome', Categories.SENSOR);
         cached.context.device = { id: 'shellyplus1-test', bthomeAddress: ADDRESS };
@@ -308,7 +595,7 @@ describe('ShellyBluGatewayDelegate', () => {
         temperature.updateValue(20);
         const platform = Object.assign(Object.create(ShellyPlatform.prototype), {
             accessories: new Map([[cached.UUID, cached]]),
-            api: { hap: { Characteristic, HAPStatus, HapStatusError } },
+            api: { hap: { Characteristic, HAPStatus, HapStatusError, Service } },
         }) as ShellyPlatform;
 
         platform.markBTHomeAccessoriesUnavailable();
@@ -318,6 +605,28 @@ describe('ShellyBluGatewayDelegate', () => {
         expect((deviceContext.bthomeUnavailableServices as Record<string, unknown>)['bthome-temperature-2-0']).toBe(
             true,
         );
+    });
+
+    it('invalidates cached TRV services before host discovery can expose persisted readings', () => {
+        const cached = new MockPlatformAccessory('Cached TRV', 'cached-trv', Categories.THERMOSTAT);
+        cached.context.device = { id: 'shellyblugatewaygen3-test', bthomeAddress: ADDRESS };
+        const service = cached.addService(Service.Thermostat, 'BLU TRV', TRV_SUBTYPE);
+        const currentState = service.getCharacteristic(Characteristic.CurrentHeatingCoolingState);
+        const currentTemperature = service.getCharacteristic(Characteristic.CurrentTemperature);
+        const targetTemperature = service.getCharacteristic(Characteristic.TargetTemperature);
+        currentState.updateValue(Characteristic.CurrentHeatingCoolingState.HEAT);
+        currentTemperature.updateValue(21);
+        targetTemperature.updateValue(22);
+        const platform = Object.assign(Object.create(ShellyPlatform.prototype), {
+            accessories: new Map([[cached.UUID, cached]]),
+            api: { hap: { Characteristic, HAPStatus, HapStatusError, Service } },
+        }) as ShellyPlatform;
+
+        platform.markBTHomeAccessoriesUnavailable();
+
+        expect(currentState.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(currentTemperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(targetTemperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
     });
 
     it('invalidates every BTHome sensor kind recorded in the descriptor table', () => {
@@ -489,6 +798,283 @@ describe('ShellyBluGatewayDelegate', () => {
         expect(fixture.removed).toHaveLength(0);
     });
 
+    it('does not forward inventory status emitted before ds9 updates a reused sensor config', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const sensor = makeComponent(
+            'bthomesensor:201',
+            { addr: ADDRESS, obj_id: 2, idx: 0 },
+            { value: 22.5, last_update_ts: 1000 },
+        );
+        const fixture = makeFixture({ inventory: [deviceComponent, sensor] });
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const temperature = accessory
+            .platformAccessory!.getServiceById(Service.TemperatureSensor, 'bthome-temperature-2-0')!
+            .getCharacteristic(Characteristic.CurrentTemperature);
+        expect(temperature.value).toBe(22.5);
+
+        const otherAddress = 'aa:bb:cc:dd:ee:ff';
+        fixture.setKnownObjectsError();
+        fixture.setRefreshComponents(async () => {
+            // This is the actual ds9 1.9.0 ordering: retained component,
+            // status update/event first, then config assignment.
+            sensor.update({ value: 88, last_update_ts: 1001 });
+            sensor.config = { addr: otherAddress, obj_id: 2, idx: 0 };
+        });
+        fixture.device.rpcHandler.emit('connect');
+        await fixture.refresh();
+
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(temperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(fixture.removed).toHaveLength(0);
+        fixture.delegate.detach();
+    });
+
+    it('does not forward events from a reused BTHome device after its address changes during failed reconciliation', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const fixture = makeFixture({
+            inventory: [deviceComponent],
+            knownObjects: { objects: [{ obj_id: 58, idx: 0 }] },
+        });
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const button = accessory.abilities.find((ability) => ability instanceof BTHomeButtonAbility)!;
+        const eventCharacteristic = button['service'].getCharacteristic(Characteristic.ProgrammableSwitchEvent);
+        deviceComponent.emit('event', {
+            component: 'bthomedevice:200',
+            id: 200,
+            event: 'single_push',
+            idx: 0,
+            ts: 1711200000,
+        });
+        expect(eventCharacteristic.value).toBe(Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS);
+
+        const otherAddress = 'aa:bb:cc:dd:ee:ff';
+        fixture.setKnownObjectsError();
+        fixture.setRefreshComponents(async () => {
+            deviceComponent.emit('event', {
+                component: 'bthomedevice:200',
+                id: 200,
+                event: 'double_push',
+                idx: 0,
+                ts: 1711200001,
+            });
+            deviceComponent.config = { addr: otherAddress };
+        });
+        fixture.device.rpcHandler.emit('connect');
+        await fixture.refresh();
+        deviceComponent.emit('event', {
+            component: 'bthomedevice:200',
+            id: 200,
+            event: 'double_push',
+            idx: 0,
+            ts: 1711200002,
+        });
+
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(eventCharacteristic.value).toBe(Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS);
+        expect(fixture.removed).toHaveLength(0);
+        fixture.delegate.detach();
+    });
+
+    it('forwards valid button events during a slow inventory and capability refresh', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const fixture = makeFixture({
+            inventory: [deviceComponent],
+            knownObjects: { objects: [{ obj_id: 58, idx: 0 }] },
+        });
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const button = accessory.abilities.find((ability) => ability instanceof BTHomeButtonAbility)!;
+        const eventCharacteristic = button['service'].getCharacteristic(Characteristic.ProgrammableSwitchEvent);
+
+        let resolveRefresh!: () => void;
+        fixture.setRefreshComponents(() => new Promise<void>((resolve) => (resolveRefresh = resolve)));
+        fixture.setKnownObjectsError();
+        const refresh = fixture.refresh();
+        deviceComponent.emit('event', {
+            component: 'bthomedevice:200',
+            id: 200,
+            event: 'double_push',
+            idx: 0,
+            ts: 1711200001,
+        });
+        await Promise.resolve();
+
+        expect(eventCharacteristic.value).toBe(Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS);
+        resolveRefresh();
+        await refresh;
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        fixture.delegate.detach();
+    });
+
+    it('preserves a motion pulse during pending GetKnownObjects discovery', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const sensor = makeComponent(
+            'bthomesensor:201',
+            { addr: ADDRESS, obj_id: 33, idx: 0 },
+            { value: false, last_update_ts: 1000 },
+        );
+        const fixture = makeFixture({ inventory: [deviceComponent, sensor] });
+        fixture.setStatusAt(201, false, 1000);
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const motion = accessory
+            .platformAccessory!.getServiceById(Service.MotionSensor, 'bthome-motion-33-0')!
+            .getCharacteristic(Characteristic.MotionDetected);
+        const changes: unknown[] = [];
+        motion.on('change', ({ newValue }) => {
+            if (typeof newValue === 'boolean') {
+                changes.push(newValue);
+            }
+        });
+
+        let resolveCapabilities!: (value: unknown) => void;
+        fixture.setKnownObjects(new Promise((resolve) => (resolveCapabilities = resolve)));
+        const pendingRefresh = fixture.refresh();
+        for (let i = 0; i < 12; i++) {
+            await Promise.resolve();
+        }
+        expect(fixture.device.rpcHandler.request).toHaveBeenCalledWith('BTHomeDevice.GetKnownObjects', { id: 200 });
+
+        sensor.update({ value: true, last_update_ts: 1001 });
+        sensor.update({ value: false, last_update_ts: 1002 });
+        await Promise.resolve();
+        expect(changes).toEqual([true, false]);
+
+        resolveCapabilities({ objects: [] });
+        await pendingRefresh;
+        expect(motion.value).toBe(false);
+        fixture.delegate.detach();
+    });
+
+    it('does not restore a queued pre-disconnect snapshot when inventory discovery completes', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const sensor = makeComponent(
+            'bthomesensor:201',
+            { addr: ADDRESS, obj_id: 33, idx: 0 },
+            { value: false, last_update_ts: 1000 },
+        );
+        const fixture = makeFixture({ inventory: [deviceComponent, sensor] });
+        fixture.setStatusAt(201, false, 1000);
+        await fixture.refresh();
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const motion = accessory
+            .platformAccessory!.getServiceById(Service.MotionSensor, 'bthome-motion-33-0')!
+            .getCharacteristic(Characteristic.MotionDetected);
+        const changes: unknown[] = [];
+        motion.on('change', ({ newValue }) => {
+            if (typeof newValue === 'boolean') {
+                changes.push(newValue);
+            }
+        });
+
+        let resolveCapabilities!: (value: unknown) => void;
+        fixture.setKnownObjects(new Promise((resolve) => (resolveCapabilities = resolve)));
+        const pendingRefresh = fixture.refresh();
+        for (let i = 0; i < 12; i++) {
+            await Promise.resolve();
+        }
+        sensor.update({ value: true, last_update_ts: 1001 });
+        fixture.device.rpcHandler.emit('disconnect', 1006, 'offline', null);
+        await Promise.resolve();
+        expect(motion.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+
+        resolveCapabilities({ objects: [] });
+        await pendingRefresh;
+        expect(motion.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(changes).not.toContain(true);
+        fixture.delegate.detach();
+    });
+
+    it('validates a reused sensor and button after ds9 config_changed auto-rediscovery', async () => {
+        vi.useFakeTimers();
+        const deviceSeed = makeComponent('bthomedevice:200', { addr: ADDRESS }, { value: 1 });
+        const sensorSeed = makeComponent(
+            'bthomesensor:201',
+            { addr: ADDRESS, obj_id: 2, idx: 0 },
+            { value: 22.5, last_update_ts: 1000 },
+        );
+        const fixture = makeFixture({
+            inventory: [deviceSeed, sensorSeed],
+            knownObjects: { objects: [{ obj_id: 58, idx: 0 }] },
+            realGateway: true,
+        });
+        await fixture.refresh();
+
+        const gateway = fixture.device as ShellyBluGatewayGen3;
+        const deviceComponent = gateway.getComponent('bthomedevice:200') as DynamicComponent;
+        const sensor = gateway.getComponent('bthomesensor:201') as DynamicComponent;
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const temperature = accessory
+            .platformAccessory!.getServiceById(Service.TemperatureSensor, 'bthome-temperature-2-0')!
+            .getCharacteristic(Characteristic.CurrentTemperature);
+        const button = accessory.abilities.find((ability) => ability instanceof BTHomeButtonAbility)!;
+        const buttonEvent = button['service'].getCharacteristic(Characteristic.ProgrammableSwitchEvent);
+        deviceComponent.emit('event', {
+            component: 'bthomedevice:200',
+            id: 200,
+            event: 'single_push',
+            idx: 0,
+            ts: 1711200000,
+        });
+        await Promise.resolve();
+        expect(buttonEvent.value).toBe(Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS);
+
+        const sensorUpdate = vi.spyOn(temperature, 'updateValue');
+        const buttonUpdate = vi.spyOn(buttonEvent, 'updateValue');
+        const otherAddress = 'aa:bb:cc:dd:ee:ff';
+        fixture.setKnownObjectsError();
+        fixture.setInventory([
+            makeComponent('bthomedevice:200', { addr: otherAddress }, { value: 2 }),
+            makeComponent(
+                'bthomesensor:201',
+                { addr: otherAddress, obj_id: 2, idx: 0 },
+                { value: 88, last_update_ts: 1001 },
+            ),
+        ]);
+        deviceComponent.on('change:value', () => {
+            deviceComponent.emit('event', {
+                component: 'bthomedevice:200',
+                id: 200,
+                event: 'double_push',
+                idx: 0,
+                ts: 1711200001,
+            });
+        });
+
+        fixture.device.rpcHandler.emit('event', { events: [{ event: 'config_changed', ts: 1711200001 }] });
+        for (let i = 0; i < 20 && deviceComponent.config?.addr !== otherAddress; i++) {
+            await Promise.resolve();
+        }
+        for (let i = 0; i < 5; i++) {
+            await Promise.resolve();
+        }
+
+        expect(gateway.getComponent('bthomesensor:201')).toBe(sensor);
+        expect(deviceComponent.config?.addr).toBe(otherAddress);
+        expect(sensor.config?.addr).toBe(otherAddress);
+        expect(sensorUpdate).not.toHaveBeenCalledWith(88);
+        expect(buttonUpdate).not.toHaveBeenCalledWith(Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS);
+        expect(temperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
+        expect(buttonEvent.value).toBe(Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS);
+
+        // A failed capability refresh remains non-authoritative; the old
+        // accessory is retained but its mismatched component cannot report.
+        await fixture.refresh();
+        expect(fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)).toBe(accessory);
+        expect(sensorUpdate).not.toHaveBeenCalledWith(88);
+        expect(buttonUpdate).not.toHaveBeenCalledWith(Characteristic.ProgrammableSwitchEvent.DOUBLE_PRESS);
+        expect(fixture.removed).toHaveLength(0);
+        fixture.delegate.detach();
+        gateway.rpcHandler.removeAllListeners();
+    });
+
     it('removes adjacent stale cached BTHome services without skipping entries', async () => {
         vi.useFakeTimers();
         const uuidValue = uuid.generate(`${ADDRESS}-bthome-${ADDRESS}`);
@@ -587,6 +1173,53 @@ describe('ShellyBluGatewayDelegate', () => {
         expect(temperature.value).toBe(24);
         expect(temperature.statusCode).not.toBe(HAPStatus.RESOURCE_BUSY);
         ability.detach();
+        fixture.delegate.detach();
+    });
+
+    it('normalizes the plural TRV-independent timestamp alias from BTHome GetStatus', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const sensor = makeComponent(
+            'bthomesensor:201',
+            { addr: ADDRESS, obj_id: 2, idx: 0 },
+            { value: 22.5, last_update_ts: 1000 },
+        );
+        const fixture = makeFixture({
+            inventory: [deviceComponent, sensor],
+            statusResponse: async () => ({ value: 24, last_updated_ts: 1001 }),
+        });
+
+        await fixture.refresh();
+
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const temperature = accessory
+            .platformAccessory!.getServiceById(Service.TemperatureSensor, 'bthome-temperature-2-0')!
+            .getCharacteristic(Characteristic.CurrentTemperature);
+        expect(temperature.value).toBe(24);
+        expect(temperature.statusCode).not.toBe(HAPStatus.RESOURCE_BUSY);
+        fixture.delegate.detach();
+    });
+
+    it('rejects conflicting BTHome timestamp aliases from GetStatus', async () => {
+        vi.useFakeTimers();
+        const deviceComponent = makeComponent('bthomedevice:200', { addr: ADDRESS });
+        const sensor = makeComponent(
+            'bthomesensor:201',
+            { addr: ADDRESS, obj_id: 2, idx: 0 },
+            { value: 22.5, last_update_ts: 1000 },
+        );
+        const fixture = makeFixture({
+            inventory: [deviceComponent, sensor],
+            statusResponse: async () => ({ value: 24, last_update_ts: 1001, last_updated_ts: 1002 }),
+        });
+
+        await fixture.refresh();
+
+        const accessory = fixture.delegate['accessories'].get(`bthome-${ADDRESS}`)!;
+        const temperature = accessory
+            .platformAccessory!.getServiceById(Service.TemperatureSensor, 'bthome-temperature-2-0')!
+            .getCharacteristic(Characteristic.CurrentTemperature);
+        expect(temperature.statusCode).toBe(HAPStatus.RESOURCE_BUSY);
         fixture.delegate.detach();
     });
 
@@ -1066,6 +1699,20 @@ describe('ShellyBluGatewayDelegate', () => {
             accessory.platformAccessory!.getServiceById(Service.TemperatureSensor, 'bthome-temperature-2-0'),
         ).toBeDefined();
         expect(fixture.removed).toHaveLength(0);
+        fixture.delegate.detach();
+    });
+
+    it('does not adopt a BLU TRV component on a host without callTrv', async () => {
+        vi.useFakeTimers();
+        const fixture = makeFixture({ inventory: [makeTrvComponent()] });
+        // Strip gateway support so the inventory's TRV component cannot be
+        // adopted: without callTrv the TRV-bearing inventory stays incomplete.
+        delete (fixture.device as { callTrv?: unknown }).callTrv;
+
+        await fixture.refresh();
+
+        expect(fixture.delegate['accessories'].size).toBe(0);
+        expect(fixture.platform.addAccessory).not.toHaveBeenCalled();
         fixture.delegate.detach();
     });
 
