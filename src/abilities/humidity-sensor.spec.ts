@@ -57,6 +57,7 @@ function setupAbility(component: Humidity): {
         addService: (serviceClass: typeof Service.HumiditySensor, name?: string, subtype?: string) =>
             new serviceClass(name, subtype),
         getService: () => undefined,
+        getServiceById: () => undefined,
         removeService: vi.fn(),
     } as unknown as PlatformAccessory;
 

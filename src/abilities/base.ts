@@ -246,7 +246,7 @@ export abstract class Ability {
         let service: Service | undefined;
         if (this.serviceName && this.serviceSubtype) {
             service =
-                this.platformAccessory.getService(this.serviceName) ||
+                this.platformAccessory.getServiceById(this.serviceClass, this.serviceSubtype) ||
                 this.platformAccessory.addService(this.serviceClass, this.serviceName, this.serviceSubtype);
         } else {
             service = this.platformAccessory.getService(this.serviceClass);
@@ -265,7 +265,7 @@ export abstract class Ability {
         if (this.hapService !== null) {
             service = this.hapService;
         } else if (this.serviceName && this.serviceSubtype) {
-            service = this.platformAccessory.getService(this.serviceName);
+            service = this.platformAccessory.getServiceById(this.serviceClass, this.serviceSubtype);
         } else {
             service = this.platformAccessory.getService(this.serviceClass);
         }

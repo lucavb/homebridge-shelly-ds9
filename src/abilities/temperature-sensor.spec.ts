@@ -57,6 +57,7 @@ function setupAbility(component: Temperature): {
         addService: (serviceClass: typeof Service.TemperatureSensor, name?: string, subtype?: string) =>
             new serviceClass(name, subtype),
         getService: () => undefined,
+        getServiceById: () => undefined,
         removeService: vi.fn(),
     } as unknown as PlatformAccessory;
 

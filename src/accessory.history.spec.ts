@@ -108,6 +108,10 @@ class MockPlatformAccessory {
         return this.services.find((service) => service.UUID === targetUuid);
     }
 
+    getServiceById(serviceClass: typeof Service, subtype: string): Service | undefined {
+        return this.services.find((service) => service.UUID === serviceClass.UUID && service.subtype === subtype);
+    }
+
     removeService(service: Service) {
         const index = this.services.indexOf(service);
         if (index >= 0) {
