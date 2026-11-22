@@ -51,6 +51,17 @@ enabling HomeKit support via mDNS discovery and WebSocket RPC.
 - [Shelly Plug US Gen4](https://kb.shelly.cloud/knowledge-base/shelly-plug-us-gen4)
 - Shelly Dimmer Gen4 (EU and US)
 - [Shelly Power Strip 4 Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyPowerStripG4/)
+- Shelly Pro 3EM
+- Shelly 3EM-63 Gen3
+
+### Energy meters
+
+The Pro 3EM and 3EM-63 Gen3 expose aggregate and per-phase readings through
+custom HomeKit services. The consumption, imported energy, voltage and current
+characteristics use Eve-compatible identifiers; signed net power and exported
+energy use plugin-specific characteristics, whose visibility depends on the
+client. Export is not counted as consumption. The Pro 3EM's optional relay is
+exposed when present. Restart Homebridge after changing the meter profile.
 
 ## Installation
 

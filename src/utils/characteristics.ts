@@ -7,6 +7,8 @@ export interface CustomCharacteristics {
     ElectricCurrent: C;
     TotalConsumption: C;
     Voltage: C;
+    SignedNetPower: C;
+    ExportedEnergy: C;
 }
 
 /**
@@ -86,10 +88,48 @@ export const createCharacteristics = (api: API): CustomCharacteristics => {
         }
     }
 
+    /**
+     * Signed net power, in watts. Negative values indicate exported power.
+     */
+    class SignedNetPower extends api.hap.Characteristic {
+        static readonly UUID = 'A6F2EAB1-2D4A-4E2B-9AC3-6A7E611CA010';
+
+        constructor() {
+            super('Signed Net Power', SignedNetPower.UUID, {
+                format: api.hap.Formats.FLOAT,
+                perms: [api.hap.Perms.NOTIFY, api.hap.Perms.PAIRED_READ],
+                unit: 'W',
+                minValue: -100000,
+                maxValue: 100000,
+                minStep: 0.001,
+            });
+        }
+    }
+
+    /**
+     * Total exported energy, in kilowatt hours.
+     */
+    class ExportedEnergy extends api.hap.Characteristic {
+        static readonly UUID = 'A6F2EAB1-2D4A-4E2B-9AC3-6A7E611CA014';
+
+        constructor() {
+            super('Exported Energy', ExportedEnergy.UUID, {
+                format: api.hap.Formats.FLOAT,
+                perms: [api.hap.Perms.NOTIFY, api.hap.Perms.PAIRED_READ],
+                unit: 'kWh',
+                minValue: 0,
+                maxValue: 100000000,
+                minStep: 0.001,
+            });
+        }
+    }
+
     return {
         CurrentConsumption,
         ElectricCurrent,
         TotalConsumption,
         Voltage,
+        SignedNetPower,
+        ExportedEnergy,
     };
 };

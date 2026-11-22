@@ -12,3 +12,4 @@ export * from './switch.ts';
 export * from './pm1.ts';
 export * from './temperature-sensor.ts';
 export * from './humidity-sensor.ts';
+export * from './energy-meter.ts';

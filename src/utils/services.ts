@@ -7,6 +7,7 @@ type S = WithUUID<typeof Service>;
 export interface CustomServices {
     PowerMeter: S;
     Pm1: S;
+    ThreePhaseMeter: S;
 }
 
 /**
@@ -47,8 +48,28 @@ export const createServices = (api: API, characteristics: CustomCharacteristics)
         }
     }
 
+    /**
+     * Reports three-phase energy meter readings.
+     */
+    class ThreePhaseMeter extends api.hap.Service {
+        static readonly UUID = 'A6F2EAB1-2D4A-4E2B-9AC3-6A7E611CA001';
+
+        constructor(displayName?: string, subtype?: string) {
+            super(displayName, ThreePhaseMeter.UUID, subtype);
+
+            this.addCharacteristic(characteristics.SignedNetPower);
+
+            this.addOptionalCharacteristic(characteristics.CurrentConsumption);
+            this.addOptionalCharacteristic(characteristics.ElectricCurrent);
+            this.addOptionalCharacteristic(characteristics.Voltage);
+            this.addOptionalCharacteristic(characteristics.TotalConsumption);
+            this.addOptionalCharacteristic(characteristics.ExportedEnergy);
+        }
+    }
+
     return {
         PowerMeter,
         Pm1,
+        ThreePhaseMeter,
     };
 };

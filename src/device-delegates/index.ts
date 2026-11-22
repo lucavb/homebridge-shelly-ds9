@@ -20,3 +20,4 @@ export * from './shelly-plus-dimmer.ts';
 export * from './shelly-gen4-mini.ts';
 export * from './shelly-gen4-dimmer.ts';
 export * from './shelly-gen4-power-strip-4.ts';
+export * from './shelly-energy-meter.ts';
