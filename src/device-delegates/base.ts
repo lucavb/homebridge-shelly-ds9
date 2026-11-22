@@ -71,6 +71,11 @@ export interface AddLightOptions {
      * Whether the device has a single light.
      */
     single: boolean;
+    /**
+     * The light ability class to instantiate, for delegate-specific variants
+     * such as stale-aware abilities. Defaults to the standard `LightAbility`.
+     */
+    lightAbility: new (light: Light) => LightAbility;
 }
 
 /**
@@ -360,7 +365,9 @@ export abstract class DeviceDelegate {
         const id = o.single === true ? 'light' : `light-${light.id}`;
         const nameSuffix = o.single === true ? null : `Light ${light.id + 1}`;
 
-        return this.createAccessory(id, nameSuffix, new LightAbility(light)).setActive(
+        const abilityClass = o.lightAbility ?? LightAbility;
+
+        return this.createAccessory(id, nameSuffix, new abilityClass(light)).setActive(
             lightOpts.exclude !== true && o.active !== false,
         );
     }

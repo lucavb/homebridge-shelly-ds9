@@ -13,3 +13,4 @@ export * from './pm1.ts';
 export * from './temperature-sensor.ts';
 export * from './humidity-sensor.ts';
 export * from './energy-meter.ts';
+export * from './rgb-light.ts';

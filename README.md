@@ -53,6 +53,14 @@ enabling HomeKit support via mDNS discovery and WebSocket RPC.
 - [Shelly Power Strip 4 Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyPowerStripG4/)
 - Shelly Pro 3EM
 - Shelly 3EM-63 Gen3
+- Shelly Plus RGBW PM
+
+### Plus RGBW PM
+
+RGB and RGBW profiles expose a HomeKit color light; the four-light profile
+exposes four dimmable lights. The RGBW profile's independent white channel is
+not currently exposed. Restart Homebridge after changing the device profile;
+switching between color and four-light profiles changes accessory identities.
 
 ### Energy meters
 
