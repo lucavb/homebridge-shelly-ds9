@@ -49,6 +49,7 @@ enabling HomeKit support via mDNS discovery and WebSocket RPC.
 - [Shelly 1 Mini Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyMini1G4)
 - [Shelly 1 PM Mini Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyMini1PMG4/)
 - [Shelly Plug US Gen4](https://kb.shelly.cloud/knowledge-base/shelly-plug-us-gen4)
+- Shelly Dimmer Gen4 (EU and US)
 - [Shelly Power Strip 4 Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyPowerStripG4/)
 
 ## Installation
