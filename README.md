@@ -12,6 +12,7 @@ enabling HomeKit support via mDNS discovery and WebSocket RPC.
 - [Shelly Plus 1 + V3](https://kb.shelly.cloud/knowledge-base/shelly-plus-1)
 - [Shelly 1L Gen3](https://kb.shelly.cloud/knowledge-base/shelly-1l-gen3)
 - [Shelly Plus 1 PM + V3](https://kb.shelly.cloud/knowledge-base/shelly-plus-1pm)
+- [Ogemray Smart Relay 25A (SW40 PbS)](https://www.shelly.com/products/ogemray-25a-smart-relay)
 - [Shelly Plus 1 Mini + V3](https://kb.shelly.cloud/knowledge-base/shelly-plus-1-mini)
 - [Shelly Plus 1 PM Mini + V3](https://kb.shelly.cloud/knowledge-base/shelly-plus-1pm-mini)
 - [Shelly Plus PM Mini + V3](https://kb.shelly.cloud/knowledge-base/shelly-plus-pm-mini)

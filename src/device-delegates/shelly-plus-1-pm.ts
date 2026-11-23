@@ -1,4 +1,5 @@
 import {
+    Ogemray25A,
     ShellyGen4OnePm,
     ShellyGen4OnePmAnz,
     ShellyPlus1Pm,
@@ -30,4 +31,5 @@ DeviceDelegate.registerDelegate(
     ShellyPlus1PmMiniV3,
     ShellyGen4OnePm,
     ShellyGen4OnePmAnz,
+    Ogemray25A,
 );
