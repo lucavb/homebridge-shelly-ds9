@@ -50,12 +50,12 @@ enabling HomeKit support via mDNS discovery and WebSocket RPC.
 - [Shelly 1 Mini Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyMini1G4)
 - [Shelly 1 PM Mini Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyMini1PMG4/)
 - [Shelly Plug US Gen4](https://kb.shelly.cloud/knowledge-base/shelly-plug-us-gen4)
-- Shelly Dimmer Gen4 (EU and US)
+- Shelly Dimmer Gen4 ([EU](https://kb.shelly.cloud/knowledge-base/shelly-dimmer-gen4) and [US](https://kb.shelly.cloud/knowledge-base/shelly-dimmer-gen4-us))
 - [Shelly Power Strip 4 Gen4](https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen4/ShellyPowerStripG4/)
-- Shelly Pro 3EM
-- Shelly 3EM-63 Gen3
-- Shelly Plus RGBW PM
-- Shelly BLU Gateway Gen3 (hosted BTHome peripherals)
+- [Shelly Pro 3EM](https://kb.shelly.cloud/knowledge-base/shelly-pro-3em)
+- [Shelly 3EM-63 Gen3](https://kb.shelly.cloud/knowledge-base/shelly-3em-63-gen3)
+- [Shelly Plus RGBW PM](https://kb.shelly.cloud/knowledge-base/shelly-plus-rgbw-pm)
+- [Shelly BLU Gateway Gen3](https://kb.shelly.cloud/knowledge-base/shelly-blu-gateway-gen3) (hosted BTHome peripherals)
 
 ### Plus RGBW PM
 
